@@ -1,0 +1,314 @@
+/* ============ SZISZpong – színek és alapok ============ */
+:root {
+  --bg: #0b0b12;
+  --bg-2: #12121c;
+  --card: #171724;
+  --card-2: #1f1f30;
+  --border: #2a2a3d;
+  --text: #f5f5fa;
+  --muted: #8b8ba7;
+  --accent: #c6ff3d;      /* neon lime */
+  --accent-ink: #11140a;
+  --ball: #ff7a1a;        /* pingponglabda narancs */
+  --win: #3ee08f;
+  --loss: #ff5a7a;
+  --gold: #ffd25a;
+  --silver: #cfd6e6;
+  --bronze: #e39a5f;
+  --radius: 18px;
+  --nav-h: 72px;
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-t: env(safe-area-inset-top, 0px);
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { background: var(--bg); }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 500px at 110% -10%, rgba(198,255,61,.10), transparent 60%),
+    radial-gradient(700px 420px at -20% 0%, rgba(255,122,26,.10), transparent 60%),
+    var(--bg);
+  background-attachment: fixed;
+  color: var(--text);
+  font-family: 'Outfit', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: 16px;
+  line-height: 1.4;
+}
+a { color: inherit; text-decoration: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+
+/* ============ Fejléc ============ */
+.topbar {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(12px + var(--safe-t)) 16px 12px;
+  background: rgba(11,11,18,.82);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-ball {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: radial-gradient(circle at 32% 30%, #ffd1a8 0 18%, var(--ball) 45%, #d9520a 100%);
+  box-shadow: 0 0 18px rgba(255,122,26,.55);
+}
+.logo-text { font-weight: 900; font-size: 22px; letter-spacing: -.5px; }
+.logo-text b { color: var(--accent); font-weight: 900; }
+
+.live { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: 1px; color: var(--muted); }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+.live.on { color: var(--accent); }
+.live.on .live-dot { background: var(--accent); box-shadow: 0 0 0 0 rgba(198,255,61,.7); animation: pulse 1.8s infinite; }
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(198,255,61,.6); }
+  70% { box-shadow: 0 0 0 9px rgba(198,255,61,0); }
+  100% { box-shadow: 0 0 0 0 rgba(198,255,61,0); }
+}
+
+/* ============ Tartalom ============ */
+.app {
+  max-width: 640px; margin: 0 auto;
+  padding: 16px 16px calc(var(--nav-h) + var(--safe-b) + 28px);
+}
+.page-title { font-size: 30px; font-weight: 900; letter-spacing: -1px; margin: 6px 0 4px; }
+.page-sub { color: var(--muted); margin: 0 0 18px; font-size: 15px; }
+.section-title { font-size: 13px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); margin: 26px 0 10px; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.stack > * + * { margin-top: 10px; }
+.empty { text-align: center; color: var(--muted); padding: 34px 16px; }
+.empty .big { font-size: 40px; display: block; margin-bottom: 6px; }
+
+.loading { display: grid; place-items: center; padding: 80px 0; }
+.spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid var(--border); border-top-color: var(--accent); animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ============ Hír és quote ============ */
+.news {
+  position: relative; overflow: hidden;
+  padding: 16px 16px 16px 58px; margin-bottom: 18px;
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, rgba(198,255,61,.16), rgba(255,122,26,.14));
+  border: 1px solid rgba(198,255,61,.35);
+  white-space: pre-wrap; word-wrap: break-word;
+  font-weight: 500;
+}
+.news::before {
+  content: '📣'; position: absolute; left: 16px; top: 14px; font-size: 26px;
+}
+.news-label { display: block; font-size: 11px; font-weight: 800; letter-spacing: 1.6px; color: var(--accent); margin-bottom: 2px; }
+
+/* ============ Ranglista ============ */
+.rank-list { display: flex; flex-direction: column; gap: 8px; }
+.rank-row {
+  display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  transition: transform .15s ease, border-color .15s;
+}
+.rank-row:active { transform: scale(.985); }
+.rank-row.me { border-color: rgba(198,255,61,.55); background: linear-gradient(90deg, rgba(198,255,61,.08), var(--card) 60%); }
+.rank-pos { font-weight: 900; font-size: 20px; text-align: center; color: var(--muted); }
+.rank-row.p1 .rank-pos { color: var(--gold); text-shadow: 0 0 14px rgba(255,210,90,.5); }
+.rank-row.p2 .rank-pos { color: var(--silver); }
+.rank-row.p3 .rank-pos { color: var(--bronze); }
+.rank-row.p1 { border-color: rgba(255,210,90,.45); }
+.rank-name { font-weight: 700; font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-meta { color: var(--muted); font-size: 13px; }
+.rank-elo { text-align: right; }
+.rank-elo strong { display: block; font-size: 22px; font-weight: 800; letter-spacing: -.5px; }
+.tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 99px; background: var(--card-2); color: var(--muted); margin-left: 6px; vertical-align: 2px; }
+.tag.new { background: rgba(255,122,26,.18); color: var(--ball); }
+.tag.you { background: rgba(198,255,61,.16); color: var(--accent); }
+
+.delta { font-size: 13px; font-weight: 700; }
+.delta.up { color: var(--win); }
+.delta.down { color: var(--loss); }
+
+/* podium a top 3-nak */
+.podium { display: grid; grid-template-columns: 1fr 1.15fr 1fr; align-items: end; gap: 8px; margin: 6px 0 16px; }
+.podium-item { text-align: center; }
+.podium-item .pname { font-weight: 800; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; }
+.podium-item .pelo { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+.podium-block {
+  border-radius: 14px 14px 6px 6px; display: grid; place-items: center;
+  font-size: 30px; font-weight: 900; color: var(--accent-ink);
+}
+.podium-item.g1 .podium-block { height: 110px; background: linear-gradient(180deg, var(--gold), #e2a92b); box-shadow: 0 10px 40px rgba(255,210,90,.25); }
+.podium-item.g2 .podium-block { height: 82px; background: linear-gradient(180deg, var(--silver), #94a0b8); }
+.podium-item.g3 .podium-block { height: 64px; background: linear-gradient(180deg, var(--bronze), #b06a35); }
+.podium-item .crown { font-size: 22px; display: block; height: 26px; }
+
+/* ============ Meccsfolyam ============ */
+.match {
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px;
+  padding: 14px; background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+}
+.match.fresh { animation: fresh 2.2s ease; }
+@keyframes fresh {
+  0% { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(198,255,61,.25); transform: translateY(-6px); }
+  100% { border-color: var(--border); box-shadow: none; transform: none; }
+}
+.match .side { min-width: 0; }
+.match .side.right { text-align: right; }
+.match .pl { font-weight: 700; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.match .side.winner .pl::before { content: '🏆 '; }
+.match .side.right.winner .pl::before { content: ''; }
+.match .side.right.winner .pl::after { content: ' 🏆'; }
+.match .side.loser .pl { color: var(--muted); font-weight: 500; }
+.match .mid { text-align: center; }
+.match .score { font-weight: 900; font-size: 18px; letter-spacing: .5px; }
+.match .vs { font-weight: 800; color: var(--muted); font-size: 13px; }
+.match .when { display: block; color: var(--muted); font-size: 11px; margin-top: 2px; white-space: nowrap; }
+.match .rec { grid-column: 1 / -1; color: var(--muted); font-size: 12px; text-align: center; margin-top: -4px; }
+
+.day-label { font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin: 18px 2px 8px; }
+.day-label:first-child { margin-top: 0; }
+
+/* ============ Űrlapok ============ */
+.field { display: block; margin-bottom: 14px; }
+.field > span { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+.input, .select, .textarea {
+  width: 100%; padding: 14px 14px; border-radius: 14px;
+  background: var(--bg-2); border: 1px solid var(--border);
+  font-size: 17px; outline: none; transition: border-color .15s, box-shadow .15s;
+  -webkit-appearance: none; appearance: none;
+}
+.select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238b8ba7' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 16px center; padding-right: 40px;
+}
+.textarea { min-height: 96px; resize: vertical; font-size: 16px; }
+.input:focus, .select:focus, .textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(198,255,61,.18); }
+.pin { letter-spacing: 14px; text-align: center; font-size: 26px; font-weight: 800; }
+.hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 14px 18px; border-radius: 14px; border: 1px solid var(--border);
+  background: var(--card-2); font-weight: 700; font-size: 16px; cursor: pointer;
+  transition: transform .1s ease, opacity .15s, background .15s;
+}
+.btn:active { transform: scale(.97); }
+.btn[disabled] { opacity: .5; pointer-events: none; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; box-shadow: 0 8px 28px rgba(198,255,61,.25); }
+.btn.danger { background: rgba(255,90,122,.14); color: var(--loss); border-color: rgba(255,90,122,.35); }
+.btn.ghost { background: transparent; }
+.btn.block { width: 100%; }
+.btn.small { padding: 8px 12px; font-size: 14px; border-radius: 10px; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 18px; }
+.tab { padding: 11px; border-radius: 12px; border: 0; background: transparent; font-weight: 700; color: var(--muted); cursor: pointer; }
+.tab.active { background: var(--card-2); color: var(--text); box-shadow: 0 2px 10px rgba(0,0,0,.3); }
+
+/* Ki nyert? választó */
+.winner-pick { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.wp {
+  padding: 18px 10px; border-radius: 16px; border: 2px solid var(--border); background: var(--bg-2);
+  font-weight: 800; font-size: 17px; cursor: pointer; text-align: center;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: all .15s;
+}
+.wp small { display: block; font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+.wp.active { border-color: var(--accent); background: rgba(198,255,61,.12); color: var(--accent); box-shadow: 0 0 24px rgba(198,255,61,.18); }
+.wp.active small { color: var(--accent); }
+
+.preview { display: flex; justify-content: space-around; padding: 12px; border-radius: 14px; background: var(--bg-2); border: 1px dashed var(--border); margin: 4px 0 16px; font-weight: 700; }
+
+.chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.chip { padding: 8px 14px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg-2); font-weight: 600; cursor: pointer; }
+.chip.active { border-color: var(--accent); color: var(--accent); background: rgba(198,255,61,.1); }
+
+.vs-badge { text-align: center; font-weight: 900; color: var(--ball); margin: -4px 0 10px; letter-spacing: 2px; }
+
+/* ============ Profil ============ */
+.profile-head { text-align: center; padding: 8px 0 4px; }
+.avatar {
+  width: 78px; height: 78px; border-radius: 50%; margin: 0 auto 10px;
+  display: grid; place-items: center; font-size: 32px; font-weight: 900; color: var(--accent-ink);
+  background: linear-gradient(135deg, var(--accent), var(--ball));
+  box-shadow: 0 10px 40px rgba(198,255,61,.2);
+}
+.profile-name { font-size: 28px; font-weight: 900; letter-spacing: -.5px; }
+.profile-elo { font-size: 48px; font-weight: 900; letter-spacing: -2px; line-height: 1; margin-top: 4px; color: var(--accent); }
+.profile-rank { color: var(--muted); font-weight: 600; margin-top: 4px; }
+
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 18px; }
+.stat { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 12px 8px; text-align: center; }
+.stat b { display: block; font-size: 22px; font-weight: 800; }
+.stat span { font-size: 12px; color: var(--muted); }
+
+.chart-box { height: 220px; padding: 12px 8px 8px; }
+
+.h2h { width: 100%; border-collapse: collapse; }
+.h2h td { padding: 11px 6px; border-bottom: 1px solid var(--border); }
+.h2h tr:last-child td { border-bottom: 0; }
+.h2h td.r { text-align: right; font-weight: 700; white-space: nowrap; }
+.bar { height: 6px; border-radius: 99px; background: rgba(255,90,122,.5); overflow: hidden; margin-top: 6px; }
+.bar i { display: block; height: 100%; background: var(--win); }
+
+/* ============ Admin ============ */
+.admin-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.admin-row:last-child { border-bottom: 0; }
+.admin-row .who { min-width: 0; }
+.admin-row .who b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-row .who small { color: var(--muted); }
+.admin-row .btn-row { flex-shrink: 0; }
+
+/* ============ Alsó menü ============ */
+.nav {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  display: grid; grid-template-columns: repeat(4, 1fr); align-items: center;
+  height: calc(var(--nav-h) + var(--safe-b)); padding-bottom: var(--safe-b);
+  background: rgba(14,14,22,.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.nav-item { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 600; color: var(--muted); padding: 6px 0; }
+.nav-item svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.nav-item.active { color: var(--accent); }
+.nav-plus .plus {
+  width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center;
+  background: var(--accent); color: var(--accent-ink); margin-top: -26px;
+  box-shadow: 0 10px 30px rgba(198,255,61,.35), 0 0 0 6px var(--bg);
+  transition: transform .15s;
+}
+.nav-plus .plus svg { width: 28px; height: 28px; stroke-width: 3; }
+.nav-plus:active .plus { transform: scale(.92) rotate(90deg); }
+@media (min-width: 700px) {
+  .nav { left: 50%; right: auto; width: 640px; transform: translateX(-50%); border-radius: 22px 22px 0 0; border: 1px solid rgba(255,255,255,.06); }
+}
+
+/* ============ Toast és ablak ============ */
+.toast {
+  position: fixed; left: 50%; bottom: calc(var(--nav-h) + var(--safe-b) + 18px); transform: translateX(-50%);
+  z-index: 50; max-width: calc(100% - 32px); width: max-content;
+  padding: 12px 18px; border-radius: 14px; font-weight: 700;
+  background: var(--text); color: var(--bg); box-shadow: 0 12px 40px rgba(0,0,0,.5);
+  animation: toast-in .25s ease;
+}
+.toast.error { background: var(--loss); color: #fff; }
+.toast.ok { background: var(--accent); color: var(--accent-ink); }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 10px); } }
+
+.modal {
+  position: fixed; inset: 0; z-index: 60; display: grid; place-items: end center;
+  background: rgba(0,0,0,.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  padding: 16px; padding-bottom: calc(16px + var(--safe-b));
+}
+.modal-box {
+  width: 100%; max-width: 480px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 22px; padding: 20px; animation: up .22s ease;
+}
+.modal-box h3 { margin: 0 0 14px; font-size: 20px; font-weight: 800; }
+.modal-box p { color: var(--muted); margin: 0 0 16px; }
+@keyframes up { from { transform: translateY(30px); opacity: 0; } }
+@media (min-width: 700px) { .modal { place-items: center; } }

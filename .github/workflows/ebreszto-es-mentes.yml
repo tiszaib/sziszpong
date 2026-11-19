@@ -1,0 +1,51 @@
+# Naponta egyszer:
+#  1. "megbököli" a Supabase-t, hogy az ingyenes adatbázis ne aludjon el,
+#  2. lementi a játékosokat, meccseket és a hírt a backup/ mappába (csak ha változott valami),
+#  3. havonta egyszer akkor is ír egy apró fájlt, ha nem volt meccs, hogy a GitHub ne kapcsolja ki ezt az automatikát.
+name: Ébresztő és mentés
+
+on:
+  schedule:
+    - cron: '23 4 * * *'   # minden nap 4:23-kor (UTC)
+  workflow_dispatch:        # kézzel is elindítható az Actions fülön
+
+permissions:
+  contents: write
+
+jobs:
+  ebreszto:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Supabase adatok kiolvasása a config.js-ből
+        run: |
+          URL=$(grep -oP "SUPABASE_URL:\s*'\K[^']+" config.js)
+          KEY=$(grep -oP "SUPABASE_KEY:\s*'\K[^']+" config.js)
+          echo "SB_URL=$URL" >> "$GITHUB_ENV"
+          echo "SB_KEY=$KEY" >> "$GITHUB_ENV"
+
+      - name: Ébresztés és mentés
+        run: |
+          set -euo pipefail
+          mkdir -p backup
+          get() {
+            curl -sf --retry 3 --retry-delay 10 "$SB_URL/rest/v1/$1" \
+              -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
+          }
+          get "players?select=id,name,elo,is_admin,active,created_at&order=created_at" > backup/players.json
+          get "matches?select=id,played_at,kind,winner_side,score,recorded_by,match_players(player_id,side,elo_before,elo_after)&order=played_at" > backup/matches.json
+          get "news?select=text,expires_on,updated_at" > backup/news.json
+          if [ "$(date -u +%d)" = "01" ]; then date -u +%F > backup/utolso-ellenorzes.txt; fi
+
+      - name: Mentés feltöltése (ha változott)
+        run: |
+          git config user.name "sziszpong-bot"
+          git config user.email "sziszpong-bot@users.noreply.github.com"
+          git add backup
+          if git diff --cached --quiet; then
+            echo "Nincs változás."
+          else
+            git commit -m "Napi mentés $(date -u +%F)"
+            git push
+          fi
