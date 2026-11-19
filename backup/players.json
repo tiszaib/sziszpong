@@ -1,0 +1,10 @@
+[{"id":"f8da8c7f-8eec-468e-a257-c37f92816e1d","name":"Tiszu","elo":940,"is_admin":true,"active":true,"created_at":"2026-11-19T02:15:24.916462+00:00"}, 
+ {"id":"46f08fa0-4d08-493b-9bb8-95de0fb66542","name":"Takker","elo":1066,"is_admin":false,"active":true,"created_at":"2026-11-19T02:27:37.150419+00:00"}, 
+ {"id":"1c53b8d0-8c9b-4ad1-b240-0498107b878b","name":"Csepi","elo":1000,"is_admin":false,"active":true,"created_at":"2026-11-19T03:16:29.96641+00:00"}, 
+ {"id":"35bb648c-8994-414e-a84e-f329a7c20132","name":"Dani","elo":1000,"is_admin":false,"active":true,"created_at":"2026-11-19T06:17:02.556311+00:00"}, 
+ {"id":"e9505ed8-516e-4c47-b182-b3b64c1a3578","name":"Sebi","elo":1000,"is_admin":false,"active":true,"created_at":"2026-11-19T07:50:32.177203+00:00"}, 
+ {"id":"414aa934-f4fc-4be5-9a64-df8b804223a2","name":"Laura","elo":1000,"is_admin":false,"active":true,"created_at":"2026-11-19T10:20:23.694083+00:00"}, 
+ {"id":"aa1601e3-5e3e-40c8-9726-26b80ad21567","name":"Lala","elo":983,"is_admin":false,"active":true,"created_at":"2026-11-19T11:00:38.621464+00:00"}, 
+ {"id":"fe4eeea6-51fb-4424-b1dc-142938683225","name":"Kassy","elo":1044,"is_admin":false,"active":true,"created_at":"2026-11-19T11:12:36.958191+00:00"}, 
+ {"id":"51e0dfd7-c4fe-408e-936c-11518b28b328","name":"Matyi","elo":1000,"is_admin":false,"active":true,"created_at":"2026-11-19T11:12:56.698082+00:00"}, 
+ {"id":"b5e26599-5c6f-494b-91da-6d1ff9ff59db","name":"Előd","elo":967,"is_admin":false,"active":true,"created_at":"2026-11-19T13:13:37.167338+00:00"}]
