@@ -109,7 +109,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* ============ Ranglista ============ */
 .rank-list { display: flex; flex-direction: column; gap: 8px; }
 .rank-row {
-  display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 12px;
+  display: grid; grid-template-columns: 40px minmax(0,1fr) auto; align-items: center; gap: 12px;
   padding: 12px 14px;
   background: var(--card); border: 1px solid var(--border); border-radius: 16px;
   transition: transform .15s ease, border-color .15s;
@@ -267,7 +267,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* ============ Alsó menü ============ */
 .nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-  display: grid; grid-template-columns: repeat(4, 1fr); align-items: center;
+  display: grid; grid-template-columns: repeat(5, 1fr); align-items: center;
   height: calc(var(--nav-h) + var(--safe-b)); padding-bottom: var(--safe-b);
   background: rgba(14,14,22,.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid rgba(255,255,255,.06);
@@ -312,3 +312,43 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .modal-box p { color: var(--muted); margin: 0 0 16px; }
 @keyframes up { from { transform: translateY(30px); opacity: 0; } }
 @media (min-width: 700px) { .modal { place-items: center; } }
+
+/* ============ 2. verzió: páros, meccs részletek ============ */
+button.match { width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; }
+button.match:active { transform: scale(.985); }
+.match.dbl { border-left: 3px solid var(--ball); }
+.match .side.winner .pl::before, .match .side.right.winner .pl::after { content: '' !important; }
+.match .side.winner .pl { color: var(--text); }
+.match .pl { white-space: normal; line-height: 1.25; }
+
+.slots { display: grid; gap: 8px; }
+.score-row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; }
+.score-row b { font-size: 24px; color: var(--muted); }
+.score-in { text-align: center; font-size: 26px; font-weight: 800; -moz-appearance: textfield; }
+.score-in::-webkit-outer-spin-button, .score-in::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.score-names { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-top: 6px; font-size: 12px; color: var(--muted); text-align: center; }
+
+.elo-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.elo-box { text-align: center; padding: 14px 8px; border-radius: 16px; background: var(--card); border: 1px solid var(--border); }
+.elo-box span { display: block; font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); }
+.elo-box b { display: block; font-size: 38px; font-weight: 900; letter-spacing: -1.5px; color: var(--accent); line-height: 1.1; }
+.elo-box.dbl b { color: var(--ball); }
+.elo-box small { color: var(--muted); font-weight: 600; }
+
+.md-head { text-align: center; color: var(--muted); font-size: 13px; font-weight: 600; margin-bottom: 14px; }
+.md-score { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; }
+.md-side { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.md-side.lose { text-align: right; }
+.md-player { display: block; min-width: 0; }
+.md-player b { display: block; font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.md-side.lose .md-player b { color: var(--muted); font-weight: 600; }
+.md-badge { font-size: 12px; font-weight: 700; color: var(--accent); }
+.md-mid { font-size: 38px; font-weight: 900; letter-spacing: -1px; display: flex; gap: 4px; align-items: center; }
+.md-mid i { font-style: normal; color: var(--muted); font-size: 22px; }
+.md-note { margin-top: 16px; padding: 12px 14px; border-radius: 14px; background: var(--bg-2); border: 1px solid var(--border); white-space: pre-wrap; word-wrap: break-word; }
+.md-h2h { display: grid; grid-template-columns: 1fr 2fr 1fr; align-items: center; gap: 10px; text-align: center; }
+.md-h2h b { display: block; font-size: 26px; font-weight: 900; }
+.md-h2h span { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.md-h2h-bar { height: 8px; border-radius: 99px; background: rgba(255,90,122,.5); overflow: hidden; }
+.md-h2h-bar i { display: block; height: 100%; background: var(--win); }
+.modal-box { max-height: calc(100vh - 32px); overflow-y: auto; }
