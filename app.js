@@ -175,6 +175,7 @@
     state.news = n.data || null;
     state.matches = all.map(normalizeMatch).filter(Boolean);
     computeStats();
+    computeHonors();
   }
 
   // Egy meccs egységes alakra hozása: győztes és vesztes oldal (1 vagy 2 játékos)
@@ -192,6 +193,7 @@
       side1: mp.filter((x) => x.side === 1).map((x) => x.player_id),
       side2: mp.filter((x) => x.side === 2).map((x) => x.player_id),
       after: Object.fromEntries(mp.map((x) => [x.player_id, x.elo_after])),
+      before: Object.fromEntries(mp.map((x) => [x.player_id, x.elo_before])),
       delta: win[0].elo_after - win[0].elo_before,
       scoreW: m.winner_side === 1 ? m.score_1 : m.score_2,
       scoreL: m.winner_side === 1 ? m.score_2 : m.score_1,
@@ -232,6 +234,236 @@
   const statsOf = (id, kind = 'singles') => state.stats[kind].get(id) || blankStats();
   const gamesOf = (id, kind) => { const s = statsOf(id, kind); return s.wins + s.losses; };
 
+  /* ------------------------------------------------------------------
+     2b. Különdíjak és achievementek
+     Minden a meccsekből számolódik: időrendben "lejátsszuk" a teljes
+     történetet, így adatbázis-változás nélkül működik, és egy törölt
+     meccs a hozzá tartozó achievementet is viszi.
+     ------------------------------------------------------------------ */
+  const DAY = 86400000;
+  const GAME_STEPS = [[10, 'g10'], [20, 'g20'], [50, 'g50'], [100, 'g100'], [200, 'g200']];
+  const STREAK_STEPS = [[3, 's3'], [5, 's5'], [7, 's7'], [10, 's10']];
+
+  const ACH = [
+    { id: 'first', icon: '🐣', name: 'Első labda', desc: 'Lejátszottad az első meccsed.' },
+    { id: 'firstwin', icon: '🩸', name: 'Első vér', desc: 'Megnyerted az első meccsed.' },
+    { id: 'firstdbl', icon: '🤝', name: 'Párban minden jobb', desc: 'Lejátszottad az első páros meccsed.' },
+    { id: 'g10', icon: '🏓', name: 'KGY-termi újonc', desc: '10 meccs (egyéni és páros együtt).' },
+    { id: 'g20', icon: '🎫', name: 'Klubtag', desc: '20 meccs (egyéni és páros együtt).' },
+    { id: 'g50', icon: '🤪', name: 'Fanatikus', desc: '50 meccs (egyéni és páros együtt).' },
+    { id: 'g100', icon: '🏛️', name: 'Kolis legenda', desc: '100 meccs (egyéni és páros együtt).' },
+    { id: 'g200', icon: '♾️', name: 'Örökös tag', desc: '200 meccs (egyéni és páros együtt).' },
+    { id: 's3', icon: '🛝', name: 'Csusza', desc: '3 győzelem zsinórban (egyéniben vagy párosban).' },
+    { id: 's5', icon: '⚡', name: 'Megállíthatatlan', desc: '5 győzelem zsinórban (egyéniben vagy párosban).' },
+    { id: 's7', icon: '🤷', name: '67', desc: '7 győzelem zsinórban (egyéniben vagy párosban).' },
+    { id: 's10', icon: '😈', name: 'Menace to society', desc: '10 győzelem zsinórban (egyéniben vagy párosban).' },
+    { id: 'throne', icon: '👑', name: 'VZS-trónfosztó', desc: 'Voltál már 1. helyen (egyéniben vagy párosban).' },
+    { id: 'bagel', icon: '🍞', name: 'Mászatott', desc: '11:0-ra nyertél egy meccset.' },
+    { id: 'nusi', icon: '🫠', name: 'Nusi néni', desc: '11:0-ra kikaptál egy meccsen.' },
+    { id: 'king', icon: '🗡️', name: 'Királygyilkos', desc: 'Egyéniben legyőzted az akkori 1. helyezettet.' },
+    { id: 'stonks', icon: '📈', name: 'Stonks', desc: 'Egy meccsen +25 pontot vagy többet szereztél.' },
+    { id: 'friend', icon: '🌍', name: 'Mindenki barátja', desc: 'Minden aktív játékos ellen játszottál már.' },
+    { id: 'lotyo', icon: '💞', name: 'Páros lotyó', desc: '5 különböző páros társ.' },
+    { id: 'night', icon: '🦉', name: 'DB-n emlegetett személy', desc: '10 meccs éjfél és hajnali 5 között.' },
+    { id: 'early', icon: '☀️', name: 'Early Bird', desc: 'Meccs reggel 5 és 8 között.' },
+    { id: 'weekend', icon: '🏠', name: 'Hétvégi bentlakó', desc: '10 meccs hétvégén.' },
+  ];
+
+  // Különdíjak. "both" = egy díj a két ranglistára együtt, különben egyéniben és párosban külön.
+  const AWARDS = {
+    magyar: { icon: '🇭🇺', name: 'A legnagyobb magyar', both: true, rule: 'Egyszerre vezeti az egyéni és a páros ranglistát. Ha nincs ilyen ember, senki nem kapja meg.' },
+    verhetetlen: { icon: '🔥', name: 'Verhetetlen', rule: 'A leghosszabb jelenlegi győzelmi sorozat (legalább 3).' },
+    feltorekvo: { icon: '🚀', name: 'Feltörekvő', rule: 'Aki 14 napja még 1000 pont alatt volt, és azóta a legtöbbet javított (legalább +30).' },
+    unemployed: { icon: '🛋️', name: 'The unemployed friend', both: true, rule: 'A legtöbb meccs az elmúlt 7 napban (egyéni és páros együtt, legalább 3).' },
+    feketelo: { icon: '🐎', name: 'Fekete ló', rule: 'Az elmúlt 7 nap legnagyobb meglepetés-győzelme: a legnagyobb pontkülönbséggel erősebb ellenfél legyőzése (legalább 50).' },
+    nyugalom: { icon: '🧘', name: 'Nyugalom szigete', rule: 'A legjobb győzelmi arány a szoros meccseken (legfeljebb 2 pont különbség). Legalább 5 szoros meccs kell hozzá.' },
+    adomanyozo: { icon: '🎁', name: 'ELO adományozó', rule: 'A legtöbb elvesztett pont az elmúlt 7 napban.' },
+  };
+  const awardKeys = (kind) => Object.keys(AWARDS).map((a) => (AWARDS[a].both ? a : `${a}:${kind}`));
+  const awardOf = (key) => { const [a, kind] = key.split(':'); return { ...AWARDS[a], kind: kind || null }; };
+
+  function computeHonors() {
+    const chrono = [...state.matches].reverse();
+    const active = new Set(activePlayers().map((p) => p.id));
+    const KINDS = ['singles', 'doubles'];
+    const mk = () => ({ singles: new Map(), doubles: new Map() });
+    const rating = mk(); const played = mk(); const streak = mk(); const close = mk(); const throne = mk();
+    const lead = { singles: { id: null, since: 0 }, doubles: { id: null, since: 0 } };
+    const ach = new Map();
+    const per = new Map();
+    const events = [];
+    let holders = {};
+
+    const give = (pid, aid, at) => {
+      if (!ach.has(pid)) ach.set(pid, new Map());
+      if (!ach.get(pid).has(aid)) ach.get(pid).set(aid, at);
+    };
+    const P = (pid) => {
+      if (!per.has(pid)) per.set(pid, { games: 0, night: 0, weekend: 0, partners: new Set(), opp: new Map(), best: { singles: 0, doubles: 0 } });
+      return per.get(pid);
+    };
+    const leaderOf = (kind) => {
+      let best = null; let top = -Infinity; let tie = false;
+      for (const [id, n] of played[kind]) {
+        if (!n || !active.has(id)) continue;
+        const r = rating[kind].get(id);
+        if (r > top) { top = r; best = id; tie = false; } else if (r === top) tie = true;
+      }
+      return tie ? null : best;
+    };
+    const avgBefore = (m, ids) => ids.reduce((t, id) => t + (m.before[id] ?? 1000), 0) / ids.length;
+
+    // Ki viszi a díjat t időpontban? (i = az utolsó már lejátszott meccs indexe)
+    function evalAwards(t, i, prev) {
+      const res = {};
+      const w7 = []; const w14 = [];
+      for (let j = i; j >= 0; j--) {
+        const x = chrono[j]; const tx = Date.parse(x.at);
+        if (tx <= t - 14 * DAY) break;
+        w14.push(x);
+        if (tx > t - 7 * DAY) w7.push(x);
+      }
+      // a legnagyobb értékű nyer; egyenlőségnél marad a régi gazda
+      const pick = (key, scores, min, text) => {
+        let best = -Infinity; let cands = [];
+        for (const [id, v] of scores) {
+          if (!active.has(id) || v < min) continue;
+          if (v > best) { best = v; cands = [id]; } else if (v === best) cands.push(id);
+        }
+        if (!cands.length) return;
+        const inc = prev[key]?.ids[0];
+        const id = cands.includes(inc) ? inc : cands[0];
+        res[key] = { ids: [id], text: text(best, id) };
+      };
+
+      const ls = leaderOf('singles');
+      if (ls && ls === leaderOf('doubles')) res.magyar = { ids: [ls], text: 'Egyéniben és párosban is ő az első.' };
+
+      const cnt = new Map();
+      for (const x of w7) for (const id of [...x.winners, ...x.losers]) cnt.set(id, (cnt.get(id) || 0) + 1);
+      pick('unemployed', cnt, 3, (v) => `${v} meccs az elmúlt 7 napban`);
+
+      for (const k of KINDS) {
+        pick(`verhetetlen:${k}`, streak[k], 3, (v) => `${v} győzelem zsinórban`);
+
+        const start = new Map();
+        for (const x of w14) if (x.kind === k) for (const id of [...x.winners, ...x.losers]) start.set(id, x.before[id]);
+        const gain = new Map();
+        for (const [id, s] of start) if (s < 1000) gain.set(id, rating[k].get(id) - s);
+        pick(`feltorekvo:${k}`, gain, 30, (v, id) => `+${v} pont 14 nap alatt (${start.get(id)} pontról indult)`);
+
+        let up = null;
+        for (const x of w7) {
+          if (x.kind !== k || !x.winners.every((id) => active.has(id))) continue;
+          const gap = Math.round(avgBefore(x, x.losers) - avgBefore(x, x.winners));
+          if (gap < 50) continue;
+          const inc = prev[`feketelo:${k}`]?.matchId === x.id;
+          if (!up || gap > up.gap || (gap === up.gap && inc)) up = { gap, x };
+        }
+        if (up) res[`feketelo:${k}`] = { ids: up.x.winners, matchId: up.x.id, text: `${up.gap} ponttal erősebb ellenfelet győzött le (${namesOf(up.x.losers)})` };
+
+        const rate = new Map();
+        for (const [id, c] of close[k]) if (c.n >= 5) rate.set(id, c.w / c.n);
+        pick(`nyugalom:${k}`, rate, 0, (v, id) => `${Math.round(v * 100)}% a szoros meccseken (${close[k].get(id).w}/${close[k].get(id).n})`);
+
+        const lost = new Map();
+        for (const x of w7) if (x.kind === k) for (const id of x.losers) lost.set(id, (lost.get(id) || 0) + x.delta);
+        pick(`adomanyozo:${k}`, lost, 1, (v) => `−${v} pont az elmúlt 7 napban`);
+      }
+      return res;
+    }
+
+    chrono.forEach((m, i) => {
+      const k = m.kind; const t = Date.parse(m.at);
+      const king = k === 'singles' ? leaderOf('singles') : null;
+      const d = new Date(m.at); const h = d.getHours(); const wd = d.getDay();
+      const closeGame = m.scoreW != null && m.scoreW - m.scoreL <= 2;
+      for (const [ids, won] of [[m.winners, true], [m.losers, false]]) {
+        for (const id of ids) {
+          rating[k].set(id, m.after[id]);
+          played[k].set(id, (played[k].get(id) || 0) + 1);
+          const s = streak[k].get(id) || 0;
+          const ns = won ? (s > 0 ? s + 1 : 1) : (s < 0 ? s - 1 : -1);
+          streak[k].set(id, ns);
+          const p = P(id);
+          p.games++;
+          if (ns > p.best[k]) p.best[k] = ns;
+          give(id, 'first', m.at);
+          if (won) give(id, 'firstwin', m.at);
+          if (k === 'doubles') give(id, 'firstdbl', m.at);
+          for (const [n, a] of GAME_STEPS) if (p.games >= n) give(id, a, m.at);
+          for (const [n, a] of STREAK_STEPS) if (ns >= n) give(id, a, m.at);
+          if (m.scoreW === 11 && m.scoreL === 0) give(id, won ? 'bagel' : 'nusi', m.at);
+          if (won && m.delta >= 25) give(id, 'stonks', m.at);
+          if (won && king && m.losers[0] === king) give(id, 'king', m.at);
+          if (h < 5 && ++p.night >= 10) give(id, 'night', m.at);
+          if (h >= 5 && h < 8) give(id, 'early', m.at);
+          if ((wd === 0 || wd === 6) && ++p.weekend >= 10) give(id, 'weekend', m.at);
+          if (k === 'doubles') {
+            for (const mate of ids) if (mate !== id) p.partners.add(mate);
+            if (p.partners.size >= 5) give(id, 'lotyo', m.at);
+          }
+          for (const o of (won ? m.losers : m.winners)) if (!p.opp.has(o)) p.opp.set(o, m.at);
+          if (closeGame) {
+            const c = close[k].get(id) || { w: 0, n: 0 };
+            c.n++; if (won) c.w++;
+            close[k].set(id, c);
+          }
+        }
+      }
+      // első hely változása (VZS-trónfosztó és trónon töltött idő)
+      const L = lead[k]; const now = leaderOf(k);
+      if (now !== L.id) {
+        if (L.id) throne[k].set(L.id, (throne[k].get(L.id) || 0) + t - L.since);
+        L.id = now; L.since = t;
+      }
+      if (now) give(now, 'throne', m.at);
+
+      // különdíjak gazdaváltása
+      const next = evalAwards(t, i, holders);
+      for (const key of Object.keys(next)) {
+        const from = holders[key]?.ids || [];
+        if (from.slice().sort().join() === next[key].ids.slice().sort().join()) continue;
+        events.push({ at: m.at, matchId: m.id, key, kind: awardOf(key).kind, from, to: next[key].ids });
+      }
+      holders = next;
+    });
+
+    // Mindenki barátja: minden mostani aktív játékos ellen játszott már
+    for (const id of active) {
+      const p = per.get(id); if (!p) continue;
+      const others = [...active].filter((o) => o !== id);
+      if (others.length >= 3 && others.every((o) => p.opp.has(o))) {
+        give(id, 'friend', others.map((o) => p.opp.get(o)).sort().pop());
+      }
+    }
+
+    const nowT = Date.now();
+    const throneNow = mk();
+    for (const k of KINDS) {
+      for (const [id, ms] of throne[k]) throneNow[k].set(id, ms);
+      const L = lead[k];
+      if (L.id) throneNow[k].set(L.id, (throneNow[k].get(L.id) || 0) + Math.max(0, nowT - L.since));
+    }
+
+    const byMatch = new Map();
+    for (const e of events) {
+      if (!byMatch.has(e.matchId)) byMatch.set(e.matchId, []);
+      byMatch.get(e.matchId).push(e);
+    }
+    const current = evalAwards(nowT, chrono.length - 1, holders);
+    const awardsOf = new Map();
+    for (const [key, v] of Object.entries(current)) {
+      for (const id of v.ids) {
+        if (!awardsOf.has(id)) awardsOf.set(id, []);
+        awardsOf.get(id).push(key);
+      }
+    }
+    state.honors = { ach, events, byMatch, current, awardsOf, throne: throneNow, per, close, leader: { singles: lead.singles.id, doubles: lead.doubles.id } };
+  }
+
+  const achOf = (pid) => state.honors?.ach.get(pid) || new Map();
+
   function newsVisible() {
     const n = state.news;
     if (!n || !n.text) return false;
@@ -252,14 +484,16 @@
     else if (page === 'meccsek') { state.view = 'matches'; renderMatches(); }
     else if (page === 'uj') { state.view = 'new'; renderNewMatch(); }
     else if (page === 'profil') { state.view = 'profile'; renderProfile(parts[1] || state.me.id); }
+    else if (page === 'statok') { state.view = 'stats'; renderMyStats(); }
     else if (page === 'admin' && state.me.is_admin) { state.view = 'admin'; renderAdmin(); }
     else { state.view = 'singles'; renderRanking('singles'); }
-    const navKey = state.view === 'admin' ? 'profile' : state.view;
+    const navKey = ['admin', 'stats'].includes(state.view) ? 'profile' : state.view;
     $nav.querySelectorAll('.nav-item').forEach((a) => a.classList.toggle('active', a.dataset.route === navKey));
+    setTimeout(checkNewAchievements, 0);
   }
 
   function rerenderIfLive() {
-    if (['singles', 'doubles', 'matches', 'profile'].includes(state.view) && $modal.hidden) {
+    if (['singles', 'doubles', 'matches', 'profile', 'stats'].includes(state.view) && $modal.hidden) {
       const y = window.scrollY;
       route();
       window.scrollTo(0, y);
@@ -364,7 +598,7 @@
       return `
         <a class="rank-row ${me ? 'me' : ''} p${i + 1}" href="#/profil/${p.id}">
           <div class="rank-pos">${i + 1}</div>
-          <div class="rank-name">${esc(p.name)}${me ? '<span class="tag you">te</span>' : ''}</div>
+          <div class="rank-name">${esc(p.name)}${me ? '<span class="tag you">te</span>' : ''}<span class="aws">${awardIcons(p.id, kind)}</span></div>
           <div class="rank-elo"><strong>${ratingOf(p, kind)}</strong>${d != null ? `<span class="delta ${d > 0 ? 'up' : 'down'}">${signed(d)}</span>` : ''}</div>
         </a>`;
     };
@@ -412,11 +646,14 @@
       </button>`;
   }
 
-  function matchListByDay(matches) {
+  function matchListByDay(matches, bands = false) {
     let html = ''; let last = '';
     for (const m of matches) {
       const label = dayLabel(m.at);
       if (label !== last) { html += `<div class="day-label">${esc(label)}</div>`; last = label; }
+      if (bands) {
+        for (const e of state.honors?.byMatch.get(m.id) || []) if (!e.kind || e.kind === m.kind) html += bandHTML(e);
+      }
       html += matchCard(m) + '<div style="height:8px"></div>';
     }
     return html;
@@ -432,9 +669,9 @@
     const list = all.slice(0, state.feedLimit);
     $app.innerHTML = `
       <h1 class="page-title">Meccsek</h1>
-      <p class="page-sub">Élőben frissül. Koppints egy meccsre a részletekért.</p>
+      <p class="page-sub">Élőben frissül. Koppints egy meccsre a részletekért. A színes sávok a különdíjak gazdaváltásai.</p>
       ${kindSwitch(kind, 'mk')}
-      ${list.length ? matchListByDay(list) : `<div class="card empty"><span class="big">📡</span>Még nincs ${kind === 'doubles' ? 'páros' : 'egyéni'} meccs.</div>`}
+      ${list.length ? matchListByDay(list, true) : `<div class="card empty"><span class="big">📡</span>Még nincs ${kind === 'doubles' ? 'páros' : 'egyéni'} meccs.</div>`}
       ${all.length > list.length ? '<button class="btn block" id="more">Korábbi meccsek</button>' : ''}
     `;
     $app.querySelectorAll('#mk .tab').forEach((t) => {
@@ -633,6 +870,7 @@
     const dRank = ranked('doubles');
     const dPos = dRank.findIndex((x) => x.id === p.id) + 1;
     const own = p.id === state.me.id;
+    const myAwards = state.honors?.awardsOf.get(p.id) || [];
     const streak = (st) => (st.streak > 0 ? `${st.streak} GY` : st.streak < 0 ? `${-st.streak} V` : '–');
     const pct = (st) => { const n = st.wins + st.losses; return n ? Math.round((st.wins / n) * 100) + '%' : '–'; };
     const sortRec = (map) => [...map.entries()]
@@ -660,6 +898,12 @@
         <div class="elo-box"><span>Egyéni</span><b>${p.elo}</b><small>${sPos && p.active ? `${sPos}. hely` : '–'}</small></div>
         <div class="elo-box dbl"><span>Páros</span><b>${dGames ? p.elo_doubles : '–'}</b><small>${dPos ? `${dPos}. hely` : 'még nem játszott'}</small></div>
       </div>
+      ${myAwards.length ? `<div class="award-list">${myAwards.map((key) => {
+        const a = awardOf(key);
+        return `<button type="button" class="award" data-aw="${key}"><span class="award-ic">${a.icon}</span><span><b>${esc(a.name)}</b>${a.kind ? ` <i>${kindLabel(a.kind).toLowerCase()}</i>` : ''}<small>${esc(state.honors.current[key].text)}</small></span></button>`;
+      }).join('')}</div>` : ''}
+      ${own ? '<a class="btn block stats-btn" href="#/statok">📊 Statisztikáim</a>' : ''}
+      ${fold('🏆 Achievementek', `${achOf(p.id).size}/${ACH.length}`, achGrid(p.id))}
 
       <div class="section-title">Egyéni</div>
       <div class="stats">
@@ -671,7 +915,7 @@
         <div class="stat"><b>${streak(s)}</b><span>sorozat</span></div>
       </div>
       <div class="card chart-box" style="margin-top:10px">${s.history.length ? '<canvas id="chart-s"></canvas>' : '<div class="empty">Még nincs egyéni meccse.</div>'}</div>
-      ${h2h.length ? `<div class="section-title">Egymás ellen</div>${recTable(h2h)}` : ''}
+      ${h2h.length ? fold('Egymás ellen', h2h.length, recTable(h2h)) : ''}
 
       ${dGames ? `
         <div class="section-title">Páros</div>
@@ -681,7 +925,7 @@
           <div class="stat"><b>${d.best}</b><span>csúcs ELO</span></div>
         </div>
         <div class="card chart-box" style="margin-top:10px"><canvas id="chart-d"></canvas></div>
-        ${partners.length ? `<div class="section-title">Páros társak</div>${recTable(partners)}` : ''}` : ''}
+        ${partners.length ? fold('Páros társak', partners.length, recTable(partners)) : ''}` : ''}
 
       ${recent.length ? `<div class="section-title">Utolsó meccsek</div>${matchListByDay(recent)}` : ''}
 
@@ -707,6 +951,249 @@
       const cd = $app.querySelector('#chart-d');
       if (cd) drawChart(cd, d.history, '#ff7a1a', 'rgba(255,122,26,');
     }
+  }
+
+  /* ---------- Különdíjak és achievementek a felületen ---------- */
+  const awardIcons = (pid, kind) => (state.honors?.awardsOf.get(pid) || [])
+    .filter((key) => { const a = awardOf(key); return !kind || !a.kind || a.kind === kind; })
+    .map((key) => `<span class="aw" data-aw="${key}" role="button" title="${esc(awardOf(key).name)}">${awardOf(key).icon}</span>`).join('');
+
+  function openAward(key) {
+    const a = awardOf(key);
+    const cur = state.honors?.current[key];
+    modal({
+      title: `${a.icon} ${a.name}`,
+      body: `
+        ${a.kind ? `<div class="aw-kind">${kindLabel(a.kind)} különdíj</div>` : ''}
+        <p class="aw-rule">${esc(a.rule)}</p>
+        ${cur ? `<div class="aw-holder"><b>${esc(namesOf(cur.ids))}</b><span>${esc(cur.text)}</span></div>`
+          : '<p class="aw-rule">Most senkinél sincs.</p>'}`,
+    });
+  }
+
+  function openAch(id, pid) {
+    const a = ACH.find((x) => x.id === id);
+    const at = achOf(pid).get(id);
+    modal({
+      body: `
+        <div class="ach-big ${at ? '' : 'off'}">${a.icon}</div>
+        <h3 style="text-align:center;margin-bottom:6px">${esc(a.name)}</h3>
+        <p style="text-align:center">${esc(a.desc)}</p>
+        <p class="hint" style="text-align:center">${at ? `Megszerezve: ${dateTime(at)}` : 'Még nincs meg.'}</p>`,
+    });
+  }
+
+  // Lenyitható blokk (az egész sorra koppintva nyílik)
+  const fold = (title, count, inner, open = false) => `
+    <details class="fold" ${open ? 'open' : ''}>
+      <summary><span class="fold-arrow">▸</span><span class="fold-title">${title}</span>${count != null ? `<span class="fold-count">${count}</span>` : ''}</summary>
+      <div class="fold-body">${inner}</div>
+    </details>`;
+
+  function achGrid(pid) {
+    const mine = achOf(pid);
+    return `<div class="ach-grid">${ACH.map((a) => `
+      <button type="button" class="ach ${mine.has(a.id) ? '' : 'off'}" data-ach="${a.id}" data-pid="${pid}">
+        <span class="ach-ic">${a.icon}</span><span class="ach-nm">${esc(a.name)}</span>
+      </button>`).join('')}</div>`;
+  }
+
+  // Különdíj-váltás sáv a meccslistában
+  function bandHTML(e) {
+    const a = awardOf(e.key);
+    return `
+      <div class="band">
+        <span class="band-ic">${a.icon}</span>
+        <span class="band-tx"><b>${esc(a.name)}</b><span>${e.from.length ? `${esc(namesOf(e.from))} → ` : 'új gazda: '}<strong>${esc(namesOf(e.to))}</strong></span></span>
+      </div>`;
+  }
+
+  // Gratuláció az új achievementekért (a telefon megjegyzi, miket látott már)
+  function checkNewAchievements() {
+    if (!state.me || !state.honors || !$modal.hidden) return;
+    const key = 'sziszpong.seenAch.' + state.me.id;
+    const earned = [...achOf(state.me.id).keys()];
+    let seen = [];
+    try { seen = JSON.parse(store.get(key) || '[]'); } catch { seen = []; }
+    const fresh = earned.filter((id) => !seen.includes(id));
+    store.set(key, JSON.stringify(earned));
+    if (!fresh.length) return;
+    const list = fresh.map((id) => ACH.find((a) => a.id === id));
+    modal({
+      body: `
+        <div class="congrats">
+          <div class="congrats-ic">${list.length === 1 ? list[0].icon : '🏆'}</div>
+          <h3>${list.length === 1 ? 'Új achievement!' : `${list.length} új achievement!`}</h3>
+          ${list.length <= 3
+            ? list.map((a) => `<div class="congrats-item"><span>${a.icon}</span><div><b>${esc(a.name)}</b><small>${esc(a.desc)}</small></div></div>`).join('')
+            : `<div class="ach-grid">${list.map((a) => `<div class="ach"><span class="ach-ic">${a.icon}</span><span class="ach-nm">${esc(a.name)}</span></div>`).join('')}</div>
+               <p class="hint" style="margin-top:12px">A profilodon megnézheted, melyik mit jelent.</p>`}
+        </div>`,
+    });
+    confetti();
+  }
+
+  function confetti() {
+    const box = document.createElement('div');
+    box.className = 'confetti';
+    const colors = ['#c6ff3d', '#ff7a1a', '#ffd25a', '#3ee08f', '#ff5a7a', '#8fd3ff'];
+    for (let i = 0; i < 70; i++) {
+      const s = document.createElement('i');
+      s.style.left = Math.random() * 100 + '%';
+      s.style.background = colors[i % colors.length];
+      s.style.animationDelay = Math.random() * 0.6 + 's';
+      s.style.animationDuration = 1.8 + Math.random() * 1.4 + 's';
+      s.style.transform = `rotate(${Math.random() * 360}deg)`;
+      box.appendChild(s);
+    }
+    document.body.appendChild(box);
+    setTimeout(() => box.remove(), 3800);
+  }
+
+  /* ---------- Statisztikáim (csak a saját profilon) ---------- */
+  const WEEKDAYS = ['Vasárnap', 'Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat'];
+  const WD_SHORT = ['V', 'H', 'K', 'Sze', 'Cs', 'P', 'Szo'];
+  const DAYPARTS = [['éjjel', 0, 5], ['reggel', 5, 10], ['napközben', 10, 17], ['este', 17, 24]];
+  const partOf = (h) => DAYPARTS.find(([, a, b]) => h >= a && h < b)[0];
+
+  function duration(ms) {
+    const days = Math.floor(ms / DAY); const hours = Math.floor((ms % DAY) / 3600000);
+    if (days) return `${days} nap${hours ? ` ${hours} óra` : ''}`;
+    if (hours) return `${hours} óra`;
+    return `${Math.max(1, Math.round(ms / 60000))} perc`;
+  }
+
+  function renderMyStats() {
+    const me = state.me.id;
+    const mine = [...state.matches].reverse().filter((m) => m.winners.includes(me) || m.losers.includes(me))
+      .map((m) => {
+        const won = m.winners.includes(me);
+        return { m, won, d: new Date(m.at), opps: won ? m.losers : m.winners, mates: (won ? m.winners : m.losers).filter((x) => x !== me) };
+      });
+    const card = (icon, title, inner) => `<div class="card scard"><div class="scard-h"><span>${icon}</span>${title}</div>${inner}</div>`;
+    const pct = (w, n) => (n ? Math.round((w / n) * 100) + '%' : '–');
+
+    if (!mine.length) {
+      $app.innerHTML = `<h1 class="page-title">📊 Statisztikáim</h1>
+        <div class="card empty"><span class="big">🏓</span>Még nincs meccsed. Játssz egyet, és itt megjelennek a statjaid!</div>`;
+      return;
+    }
+
+    // 1. Mikor vagy a csúcson
+    const wd = Array.from({ length: 7 }, () => ({ w: 0, n: 0 }));
+    const dp = Object.fromEntries(DAYPARTS.map(([n]) => [n, { w: 0, n: 0 }]));
+    for (const r of mine) {
+      const a = wd[r.d.getDay()]; a.n++; if (r.won) a.w++;
+      const b = dp[partOf(r.d.getHours())]; b.n++; if (r.won) b.w++;
+    }
+    const maxN = Math.max(...wd.map((x) => x.n));
+    const favDay = wd.indexOf(wd.reduce((a, b) => (b.n > a.n ? b : a)));
+    const bestOf = (entries) => entries.filter(([, x]) => x.n >= 3).sort((a, b) => b[1].w / b[1].n - a[1].w / a[1].n || b[1].n - a[1].n)[0];
+    const bestDay = bestOf(wd.map((x, i) => [i, x]));
+    const bestPart = bestOf(Object.entries(dp));
+    const favPart = Object.entries(dp).sort((a, b) => b[1].n - a[1].n)[0][0];
+    const order = [1, 2, 3, 4, 5, 6, 0];
+    const peak = card('⏰', 'Mikor vagy a csúcson', `
+      <div class="weekbars">${order.map((i) => `
+        <div class="wb ${bestDay && +bestDay[0] === i ? 'best' : ''}"><i style="height:${maxN ? Math.max(6, Math.round((wd[i].n / maxN) * 100)) : 6}%"></i><span>${WD_SHORT[i]}</span></div>`).join('')}</div>
+      <div class="sline">Legtöbbet <b>${WEEKDAYS[favDay].toLowerCase()}</b> és <b>${favPart}</b> játszol.</div>
+      ${bestDay ? `<div class="sline">Legjobb napod (zöld oszlop): <b>${WEEKDAYS[bestDay[0]]}</b>, ${pct(bestDay[1].w, bestDay[1].n)} győzelem</div>` : ''}
+      ${bestPart ? `<div class="sline">Legjobb napszakod: <b>${bestPart[0]}</b>, ${pct(bestPart[1].w, bestPart[1].n)} győzelem</div>` : ''}
+      ${!bestDay ? '<div class="hint">A legjobb napodhoz legalább 3 meccs kell ugyanazon a napon.</div>' : ''}`);
+
+    // 2. Nemesis és kedvenc áldozat (egyéni, legalább 3 meccs)
+    const h2h = [...statsOf(me, 'singles').h2h.entries()].map(([id, r]) => ({ id, ...r, n: r.w + r.l })).filter((r) => r.n >= 3);
+    const nemesis = h2h.filter((r) => r.l > 0).sort((a, b) => a.w / a.n - b.w / b.n || b.l - a.l)[0];
+    const victim = h2h.filter((r) => r.w > 0 && r.id !== nemesis?.id).sort((a, b) => b.w / b.n - a.w / a.n || b.w - a.w)[0];
+    const person = (r, label, cls) => (r ? `
+      <a class="duo ${cls}" href="#/profil/${r.id}"><small>${label}</small><b>${esc(nameOf(r.id))}</b><span>${r.w} – ${r.l}</span></a>`
+      : `<div class="duo off"><small>${label}</small><b>–</b><span>még nincs</span></div>`);
+    const rivals = card('😈', 'Nemesis és kedvenc áldozat', `
+      <div class="duos">${person(nemesis, 'Nemesis', 'bad')}${person(victim, 'Kedvenc áldozat', 'good')}</div>
+      <div class="hint">Egyéni meccsek alapján, legalább 3 meccs kell ugyanazzal az ellenféllel.</div>`);
+
+    // 3. Legnagyobb győzelem és legfájóbb vereség
+    const wins = mine.filter((r) => r.won).sort((a, b) => b.m.delta - a.m.delta);
+    const losses = mine.filter((r) => !r.won).sort((a, b) => b.m.delta - a.m.delta);
+    const mrow = (r, label, cls) => (r ? `
+      <button type="button" class="mrow ${cls}" data-match="${r.m.id}">
+        <small>${label}</small>
+        <b>${signed(r.won ? r.m.delta : -r.m.delta)}</b>
+        <span>${r.won ? 'vs' : 'tőle:'} ${esc(namesOf(r.opps))}${r.m.scoreW != null ? ` · ${scoreHTML(r.m)}` : ''} · ${dateTime(r.m.at)}</span>
+      </button>` : '');
+    const biggest = card('💥', 'Legnagyobb győzelem és legfájóbb vereség',
+      (mrow(wins[0], 'Legnagyobb győzelem', 'good') + mrow(losses[0], 'Legfájóbb vereség', 'bad')) || '<div class="hint">Még nincs ilyen.</div>');
+
+    // 4. Rekordsorozat
+    const per = state.honors.per.get(me);
+    const cur = (k) => statsOf(me, k).streak;
+    const recRow = (k) => (gamesOf(me, k) ? `<div class="sline">${kindLabel(k)}: <b>${per.best[k]}</b> győzelem zsinórban${cur(k) > 0 ? ` <span class="muted">(most ${cur(k)})</span>` : ''}</div>` : '');
+    const record = card('🔥', 'Rekordsorozat', recRow('singles') + recRow('doubles'));
+
+    // 5. Az idegeid
+    const scored = mine.filter((r) => r.m.scoreW != null);
+    const tight = scored.filter((r) => r.m.scoreW - r.m.scoreL <= 2);
+    const tw = tight.filter((r) => r.won).length;
+    const avg = (rs) => (rs.length ? (rs.reduce((t, r) => t + r.m.scoreW - r.m.scoreL, 0) / rs.length).toFixed(1).replace('.', ',') : null);
+    const aw = avg(scored.filter((r) => r.won)); const al = avg(scored.filter((r) => !r.won));
+    const nerves = card('🧠', 'Az idegeid', scored.length ? `
+      <div class="big-num">${pct(tw, tight.length)}<small>${tight.length ? `győzelem a szoros meccseken (${tw}/${tight.length})` : 'még nem volt szoros meccsed'}</small></div>
+      ${aw ? `<div class="sline">Ha nyersz, átlagosan <b>${aw}</b> ponttal nyersz.</div>` : ''}
+      ${al ? `<div class="sline">Ha kikapsz, átlagosan <b>${al}</b> ponttal kapsz ki.</div>` : ''}
+      <div class="hint">Szoros: legfeljebb 2 pont különbség. Csak a beírt eredményű meccsek számítanak.</div>`
+      : '<div class="hint">Ehhez beírt eredményű meccsek kellenek.</div>');
+
+    // 6. Célpont
+    const target = (k) => {
+      if (!gamesOf(me, k)) return '';
+      const list = ranked(k); const pos = list.findIndex((p) => p.id === me);
+      if (pos < 0) return '';
+      const mineR = ratingOf(list[pos], k);
+      if (pos === 0) {
+        const second = list[1];
+        return `<div class="sline">${kindLabel(k)}: <b>Te vagy az első! 👑</b>${second ? ` Mögötted ${esc(second.name)}, ${mineR - ratingOf(second, k)} ponttal.` : ''}</div>`;
+      }
+      const above = list[pos - 1]; const gap = ratingOf(above, k) - mineR;
+      let a = mineR; let b = ratingOf(above, k); let n = 0;
+      while (a <= b && n < 30) { const dd = eloDelta(a, b); a += dd; b -= dd; n++; }
+      return `<div class="sline">${kindLabel(k)}: előtted <b>${esc(above.name)}</b>, <b>${gap || 'ugyanannyi'}</b>${gap ? ' ponttal' : ' pont'}.${k === 'singles' ? ` Kb. <b>${n}</b> győzelem ellene, és megelőzöd.` : ''}</div>`;
+    };
+    const goal = card('🎯', 'Célpont', target('singles') + target('doubles'));
+
+    // 7. Hűség
+    const withCount = new Map();
+    for (const r of mine) for (const id of [...r.opps, ...r.mates]) withCount.set(id, (withCount.get(id) || 0) + 1);
+    const loyal = [...withCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+    const loyalty = card('💍', 'Hűség', loyal.map(([id, n], i) => `
+      <div class="sline">${i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'} <a href="#/profil/${id}"><b>${esc(nameOf(id))}</b></a>: a meccseid ${Math.round((n / mine.length) * 100)}%-a (${n})</div>`).join(''));
+
+    // 8. Aktivitás
+    const days = new Map();
+    for (const r of mine) { const key = localISODate(r.d); days.set(key, (days.get(key) || 0) + 1); }
+    const busiest = [...days.entries()].sort((a, b) => b[1] - a[1])[0];
+    const weeks = Math.max(1, (Date.now() - mine[0].d.getTime()) / (7 * DAY));
+    const activity = card('📅', 'Aktivitás', `
+      <div class="mini-stats">
+        <div><b>${days.size}</b><span>játéknap</span></div>
+        <div><b>${(mine.length / weeks).toFixed(1).replace('.', ',')}</b><span>meccs / hét</span></div>
+        <div><b>${busiest[1]}</b><span>meccs egy nap alatt</span></div>
+      </div>
+      <div class="sline">Legaktívabb napod: <b>${new Date(busiest[0] + 'T12:00').toLocaleDateString('hu-HU', { year: 'numeric', month: 'long', day: 'numeric' })}</b></div>
+      <div class="sline">Első meccsed: <b>${dateTime(mine[0].m.at)}</b></div>`);
+
+    // 9. Trónon töltött idő
+    const th = (k) => state.honors.throne[k].get(me) || 0;
+    const throneCard = card('👑', 'Trónon töltött idő', (th('singles') || th('doubles')) ? `
+      ${th('singles') ? `<div class="sline">Egyéniben: <b>${duration(th('singles'))}</b>${state.honors.leader.singles === me ? ' <span class="muted">(és most is te vagy az első)</span>' : ''}</div>` : ''}
+      ${th('doubles') ? `<div class="sline">Párosban: <b>${duration(th('doubles'))}</b>${state.honors.leader.doubles === me ? ' <span class="muted">(és most is te vagy az első)</span>' : ''}</div>` : ''}`
+      : '<div class="sline">Még nem voltál első. A trón vár! 👀</div>');
+
+    $app.innerHTML = `
+      <a class="back" href="#/profil">‹ Profil</a>
+      <h1 class="page-title">📊 Statisztikáim</h1>
+      <p class="page-sub">Ezt csak te látod. ${mine.length} meccs alapján.</p>
+      ${peak}${rivals}${biggest}${record}${nerves}${goal}${loyalty}${activity}${throneCard}`;
+    bindMatchCards();
   }
 
   function drawChart(canvas, history, color, rgbaPrefix) {
@@ -989,6 +1476,15 @@
       } catch { state.me = null; }
       if (!state.me) { state.token = null; store.del(TOKEN_KEY); }
     }
+
+    // különdíj- és achievement-ikonok: koppintásra magyarázat (a sor linkje helyett)
+    $app.addEventListener('click', (e) => {
+      const aw = e.target.closest('[data-aw]');
+      const ac = e.target.closest('[data-ach]');
+      if (!aw && !ac) return;
+      e.preventDefault(); e.stopPropagation();
+      if (aw) openAward(aw.dataset.aw); else openAch(ac.dataset.ach, ac.dataset.pid);
+    }, true);
 
     subscribe();
     window.addEventListener('hashchange', () => { route(); window.scrollTo(0, 0); });
