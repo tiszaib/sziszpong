@@ -33,8 +33,8 @@ jobs:
             curl -sf --retry 3 --retry-delay 10 "$SB_URL/rest/v1/$1" \
               -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
           }
-          get "players?select=id,name,elo,is_admin,active,created_at&order=created_at" > backup/players.json
-          get "matches?select=id,played_at,kind,winner_side,score,recorded_by,match_players(player_id,side,elo_before,elo_after)&order=played_at" > backup/matches.json
+          get "players?select=id,name,elo,elo_doubles,is_admin,active,created_at&order=created_at" > backup/players.json
+          get "matches?select=id,played_at,kind,winner_side,score_1,score_2,note,recorded_by,match_players(player_id,side,elo_before,elo_after)&order=played_at" > backup/matches.json
           get "news?select=text,expires_on,updated_at" > backup/news.json
           if [ "$(date -u +%d)" = "01" ]; then date -u +%F > backup/utolso-ellenorzes.txt; fi
 
