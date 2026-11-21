@@ -35,7 +35,7 @@ export const ACH = [
   { id: 'weekend', group: 'Különleges', icon: '🏠', desc: 'Meccsek szombaton és vasárnap.', unit: 'hétvégi meccs',
     tiers: T([10, 'Hétvégi bentlakó'], [20, 'Remete'], [40, 'Prime Robi']) },
   { id: 'lotyo', group: 'Különleges', icon: '💞', desc: 'Különböző páros társak.', unit: 'különböző társ',
-    tiers: T([2, 'Páros lotyó'], [3, 'Páros lotyó'], [5, 'Páros lotyó']) },
+    tiers: T([3, 'Páros lotyó'], [6, 'Kolis Casanova'], [10, 'Tinder Gold']) },
   { id: 'friend', group: 'Különleges', icon: '🌍', desc: 'Játssz minden aktív játékos ellen (aktív: volt meccse az elmúlt 2 hétben).', unit: '', tiers: T([1, 'Mindenki barátja']) },
   { id: 'nusi', group: 'Különleges', icon: '🫠', desc: 'Kapj ki 11:0-ra.', unit: 'db 0:11', tiers: T([1, 'Nusi néni']) },
 ];
