@@ -39,6 +39,8 @@ export const ACH = [
   { id: 'friend', group: 'Különleges', icon: '🌍', desc: 'Játssz minden aktív játékos ellen (aktív: volt meccse az elmúlt 2 hétben).', unit: '', tiers: T([1, 'Mindenki barátja']) },
   { id: 'nusi', group: 'Különleges', icon: '🫠', desc: 'Kapj ki 11:0-ra.', unit: 'db 0:11', tiers: T([1, 'Nusi néni']) },
 ];
+// Mindenki barátja csak az ezutáni meccsekből jöhet (az első napokban még kevés aktív játékos volt, túl könnyű volt)
+export const FRIEND_FROM = Date.parse('2026-11-21T15:15:00Z');
 export const achDef = (id) => ACH.find((a) => a.id === id);
 export const ACH_LEVELS = ACH.reduce((t, a) => t + a.tiers.length, 0);
 // Szint-színek: bronz, ezüst, arany, gyémánt, legenda. Az egyszintesek aranyak.
@@ -204,7 +206,7 @@ export function computeHonors() {
     for (const id of [...m.winners, ...m.losers]) {
       const p = per.get(id);
       const others = [...lastPlayed.keys()].filter((o) => o !== id && recent(o, t));
-      if (others.length >= 3 && others.every((o) => p.opp.has(o))) give(id, 'friend', m.at);
+      if (t >= FRIEND_FROM && others.length >= 3 && others.every((o) => p.opp.has(o))) give(id, 'friend', m.at);
     }
 
     // első hely változása (VZS-trónfosztó és trónon töltött idő)
