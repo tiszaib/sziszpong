@@ -31,6 +31,7 @@
     stats: { singles: new Map(), doubles: new Map() },
     view: null,
     matchesKind: 'singles',  // Meccsek fül szűrője
+    profileKind: 'singles',  // Profil: egyéni vagy páros statok
     newKind: 'singles',      // Új meccs: egyéni vagy páros
     feedLimit: 40,
     adminMatchLimit: 30,
@@ -112,7 +113,7 @@
     finally { if (btn && btn.isConnected) { btn.disabled = false; btn.innerHTML = btn.dataset.label; } }
   }
 
-  function closeModal() { $modal.hidden = true; $modal.innerHTML = ''; }
+  function closeModal() { $modal.hidden = true; $modal.innerHTML = ''; document.querySelectorAll('.confetti').forEach((c) => c.remove()); }
 
   // Felugró ablak. onOk nélkül csak egy "Bezárás" gomb van rajta.
   function modal({ title, text = '', body = '', okText = 'Mentés', danger = false, onOk }) {
@@ -143,6 +144,61 @@
       if (ok) closeModal();
     };
     return form;
+  }
+
+  /* Kereshető névválasztó: a <select> megmarad (rejtve), fölé egy gomb kerül.
+     Koppintásra feljön a névlista, felül egy keresővel: ahogy gépelsz, szűkül. */
+  const fold2 = (t) => t.toLocaleLowerCase('hu').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  function enhanceSelect(sel) {
+    if (sel._pk) { sel._pk.sync(); return; }
+    sel.classList.add('sr-select');
+    sel.tabIndex = -1;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'select picker';
+    sel.after(btn);
+    const sync = () => {
+      const o = sel.selectedOptions[0];
+      btn.textContent = o ? o.textContent : '';
+      btn.classList.toggle('empty', !sel.value);
+    };
+    btn.onclick = () => openPicker(sel);
+    sel._pk = { sync };
+    sync();
+  }
+
+  function openPicker(sel) {
+    const opts = [...sel.options].filter((o) => o.value);
+    $modal.innerHTML = `
+      <div class="modal-box picker-box" role="dialog" aria-modal="true">
+        <input class="input" id="pk-q" type="search" placeholder="🔍 Kezdd el írni a nevet…" autocomplete="off" autocapitalize="off">
+        <div class="pk-list" id="pk-list"></div>
+        <button type="button" class="btn block ghost" data-close style="margin-top:10px">Mégse</button>
+      </div>`;
+    $modal.hidden = false;
+    const q = $modal.querySelector('#pk-q');
+    const list = $modal.querySelector('#pk-list');
+    const draw = () => {
+      const f = fold2(q.value.trim());
+      const hit = opts.filter((o) => !f || fold2(o.textContent).includes(f));
+      list.innerHTML = hit.map((o) => `<button type="button" class="pk-item ${o.value === sel.value ? 'on' : ''}" data-v="${esc(o.value)}">${esc(o.textContent)}</button>`).join('')
+        || '<div class="empty" style="padding:18px">Nincs ilyen nevű játékos.</div>';
+    };
+    const choose = (v) => {
+      closeModal();
+      sel.value = v;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      sel._pk?.sync();
+    };
+    q.oninput = draw;
+    q.onkeydown = (e) => { if (e.key === 'Enter') { const first = list.querySelector('.pk-item'); if (first) { e.preventDefault(); choose(first.dataset.v); } } };
+    $modal.onclick = (e) => {
+      const it = e.target.closest('.pk-item');
+      if (it) choose(it.dataset.v);
+      else if (e.target === $modal || e.target.closest('[data-close]')) closeModal();
+    };
+    draw();
+    q.focus();
   }
 
   // Egyéni / Páros kapcsoló
@@ -257,12 +313,13 @@
     { id: 's5', icon: '⚡', name: 'Megállíthatatlan', desc: '5 győzelem zsinórban (egyéniben vagy párosban).' },
     { id: 's7', icon: '🤷', name: '67', desc: '7 győzelem zsinórban (egyéniben vagy párosban).' },
     { id: 's10', icon: '😈', name: 'Menace to society', desc: '10 győzelem zsinórban (egyéniben vagy párosban).' },
-    { id: 'throne', icon: '👑', name: 'VZS-trónfosztó', desc: 'Voltál már 1. helyen (egyéniben vagy párosban).' },
+    { id: 'throne', icon: '👑', name: 'VZS-trónfosztó', desc: 'Voltál már 1. helyen az egyéni ranglistán.' },
+    { id: 'throne_d', icon: '👯', name: 'Couple goals', desc: 'Voltál már 1. helyen a páros ranglistán.' },
     { id: 'bagel', icon: '🍞', name: 'Mászatott', desc: '11:0-ra nyertél egy meccset.' },
     { id: 'nusi', icon: '🫠', name: 'Nusi néni', desc: '11:0-ra kikaptál egy meccsen.' },
     { id: 'king', icon: '🗡️', name: 'Királygyilkos', desc: 'Egyéniben legyőzted az akkori 1. helyezettet.' },
     { id: 'stonks', icon: '📈', name: 'Stonks', desc: 'Egy meccsen +25 pontot vagy többet szereztél.' },
-    { id: 'friend', icon: '🌍', name: 'Mindenki barátja', desc: 'Minden aktív játékos ellen játszottál már.' },
+    { id: 'friend', icon: '🌍', name: 'Mindenki barátja', desc: 'Minden aktív játékos ellen játszottál már (aktív: volt meccse az elmúlt 2 hétben).' },
     { id: 'lotyo', icon: '💞', name: 'Páros lotyó', desc: '5 különböző páros társ.' },
     { id: 'night', icon: '🦉', name: 'DB-n emlegetett személy', desc: '10 meccs éjfél és hajnali 5 között.' },
     { id: 'early', icon: '☀️', name: 'Early Bird', desc: 'Meccs reggel 5 és 8 között.' },
@@ -276,7 +333,7 @@
     feltorekvo: { icon: '🚀', name: 'Feltörekvő', rule: 'Aki 14 napja még 1000 pont alatt volt, és azóta a legtöbbet javított (legalább +30).' },
     unemployed: { icon: '🛋️', name: 'The unemployed friend', both: true, rule: 'A legtöbb meccs az elmúlt 7 napban (egyéni és páros együtt, legalább 3).' },
     feketelo: { icon: '🐎', name: 'Fekete ló', rule: 'Az elmúlt 7 nap legnagyobb meglepetés-győzelme: a legnagyobb pontkülönbséggel erősebb ellenfél legyőzése (legalább 50).' },
-    nyugalom: { icon: '🧘', name: 'Nyugalom szigete', rule: 'A legjobb győzelmi arány a szoros meccseken (legfeljebb 2 pont különbség). Legalább 5 szoros meccs kell hozzá.' },
+    nyugalom: { icon: '🧘', name: 'Nyugalom szigete', rule: 'A legjobb győzelmi arány a szoros meccseken, vagyis ahol 10:10 után tiebreak jött. Legalább 5 ilyen meccs kell hozzá.' },
     adomanyozo: { icon: '🎁', name: 'ELO adományozó', rule: 'A legtöbb elvesztett pont az elmúlt 7 napban.' },
   };
   const awardKeys = (kind) => Object.keys(AWARDS).map((a) => (AWARDS[a].both ? a : `${a}:${kind}`));
@@ -290,6 +347,8 @@
     const rating = mk(); const played = mk(); const streak = mk(); const close = mk(); const throne = mk();
     const lead = { singles: { id: null, since: 0 }, doubles: { id: null, since: 0 } };
     const ach = new Map();
+    const lastPlayed = new Map();   // aktív = volt meccse az elmúlt 14 napban
+    const recent = (id, t) => active.has(id) && (lastPlayed.get(id) ?? -Infinity) > t - 14 * DAY;
     const per = new Map();
     const events = [];
     let holders = {};
@@ -327,7 +386,7 @@
       const pick = (key, scores, min, text) => {
         let best = -Infinity; let cands = [];
         for (const [id, v] of scores) {
-          if (!active.has(id) || v < min) continue;
+          if (!recent(id, t) || v < min) continue;
           if (v > best) { best = v; cands = [id]; } else if (v === best) cands.push(id);
         }
         if (!cands.length) return;
@@ -354,7 +413,7 @@
 
         let up = null;
         for (const x of w7) {
-          if (x.kind !== k || !x.winners.every((id) => active.has(id))) continue;
+          if (x.kind !== k || !x.winners.every((id) => recent(id, t))) continue;
           const gap = Math.round(avgBefore(x, x.losers) - avgBefore(x, x.winners));
           if (gap < 50) continue;
           const inc = prev[`feketelo:${k}`]?.matchId === x.id;
@@ -377,7 +436,7 @@
       const k = m.kind; const t = Date.parse(m.at);
       const king = k === 'singles' ? leaderOf('singles') : null;
       const d = new Date(m.at); const h = d.getHours(); const wd = d.getDay();
-      const closeGame = m.scoreW != null && m.scoreW - m.scoreL <= 2;
+      const closeGame = isTiebreak(m);
       for (const [ids, won] of [[m.winners, true], [m.losers, false]]) {
         for (const id of ids) {
           rating[k].set(id, m.after[id]);
@@ -411,13 +470,21 @@
           }
         }
       }
+      // Mindenki barátja: az akkor aktív (2 hétben játszó) összes játékos ellen játszott már
+      for (const id of [...m.winners, ...m.losers]) lastPlayed.set(id, t);
+      for (const id of [...m.winners, ...m.losers]) {
+        const p = per.get(id);
+        const others = [...lastPlayed.keys()].filter((o) => o !== id && recent(o, t));
+        if (others.length >= 3 && others.every((o) => p.opp.has(o))) give(id, 'friend', m.at);
+      }
+
       // első hely változása (VZS-trónfosztó és trónon töltött idő)
       const L = lead[k]; const now = leaderOf(k);
       if (now !== L.id) {
         if (L.id) throne[k].set(L.id, (throne[k].get(L.id) || 0) + t - L.since);
         L.id = now; L.since = t;
       }
-      if (now) give(now, 'throne', m.at);
+      if (now) give(now, k === 'singles' ? 'throne' : 'throne_d', m.at);
 
       // különdíjak gazdaváltása
       const next = evalAwards(t, i, holders);
@@ -429,14 +496,6 @@
       holders = next;
     });
 
-    // Mindenki barátja: minden mostani aktív játékos ellen játszott már
-    for (const id of active) {
-      const p = per.get(id); if (!p) continue;
-      const others = [...active].filter((o) => o !== id);
-      if (others.length >= 3 && others.every((o) => p.opp.has(o))) {
-        give(id, 'friend', others.map((o) => p.opp.get(o)).sort().pop());
-      }
-    }
 
     const nowT = Date.now();
     const throneNow = mk();
@@ -461,6 +520,9 @@
     }
     state.honors = { ach, events, byMatch, current, awardsOf, throne: throneNow, per, close, leader: { singles: lead.singles.id, doubles: lead.doubles.id } };
   }
+
+  // Szoros meccs: 10:10 után tiebreak (a vesztes is legalább 10 pontot szerzett)
+  function isTiebreak(m) { return m.scoreW != null && m.scoreL >= 10; }
 
   const achOf = (pid) => state.honors?.ach.get(pid) || new Map();
 
@@ -545,6 +607,8 @@
       </div>`;
 
     $app.querySelectorAll('.tab').forEach((t) => { t.onclick = () => renderAuth(t.dataset.mode); });
+    const ls = $app.querySelector('#login-form [name=player]');
+    if (ls) enhanceSelect(ls);
 
     const lf = $app.querySelector('#login-form');
     if (lf) lf.onsubmit = (e) => {
@@ -745,7 +809,7 @@
         <div class="vs-badge">VS</div>
         <div class="field"><span>${dbl ? '2. csapat' : 'Játékos 2'}</span><div class="slots">${f.sides[1].map((_, i) => slot(1, i)).join('')}</div></div>
 
-        <div class="field"><span>Eredmény (nem kötelező)</span>
+        <div class="field"><span>Eredmény</span>
           <div class="score-row">
             <input class="input score-in" name="s1" type="number" inputmode="numeric" min="0" max="99" placeholder="–">
             <b>:</b>
@@ -793,6 +857,7 @@
         sel.innerHTML = '<option value="">Válassz…</option>' + list.filter((p) => !taken.has(p.id))
           .map((p) => `<option value="${p.id}" ${p.id === mine ? 'selected' : ''}>${esc(p.name)}${p.id === state.me.id ? ' (te)' : ''}</option>`).join('');
       }
+      selects.forEach(enhanceSelect);
       const full = f.sides.every((side) => side.every(Boolean));
       form.querySelector('#sn1').textContent = sideName(0);
       form.querySelector('#sn2').textContent = sideName(1);
@@ -800,8 +865,8 @@
       // ha mindkét pontszám megvan, abból dől el a győztes
       const [a, b] = scores();
       const byScore = a != null && b != null && a !== b;
-      if (byScore) f.winner = a > b ? 1 : 2;
-      form.querySelector('#wpbox').hidden = byScore;
+      f.winner = byScore ? (a > b ? 1 : 2) : 0;   // a győztest mindig a pontszám dönti el
+      form.querySelector('#wpbox').hidden = true;
       form.querySelector('#wp').innerHTML = [1, 2].map((s) => `
         <button type="button" class="wp ${f.winner === s ? 'active' : ''}" data-s="${s}" ${full ? '' : 'disabled'}>
           ${esc(sideName(s - 1))}<small>${f.winner === s ? 'nyert 🏆' : 'nyert?'}</small>
@@ -834,8 +899,9 @@
     form.onsubmit = (e) => {
       e.preventDefault();
       const [a, b] = scores();
-      if ((a == null) !== (b == null)) { toast('Mindkét pontszámot írd be, vagy egyiket se.', 'error'); return; }
-      if (a != null && a === b) { toast('Döntetlen nem lehet.', 'error'); return; }
+      if (a == null || b == null) { toast('Írd be mindkét pontszámot.', 'error'); return; }
+      if (a === b) { toast('Döntetlen nem lehet.', 'error'); return; }
+      if (Math.min(a, b) >= 10 && Math.abs(a - b) !== 2) { toast('10:10 után kettővel kell nyerni (pl. 12:10).', 'error'); return; }
       if (!f.winner) return;
       const W = f.sides[f.winner - 1]; const L = f.sides[2 - f.winner];
       const sW = f.winner === 1 ? a : b; const sL = f.winner === 1 ? b : a;
@@ -888,44 +954,48 @@
         </table>
       </div>`;
 
+    const kind = state.profileKind;
+    const panel = (k) => {
+      const st = k === 'singles' ? s : d;
+      const n = st.wins + st.losses;
+      if (!n) return `<div class="kpanel" data-k="${k}"><div class="card empty"><span class="big">🏓</span>Még nincs ${k === 'doubles' ? 'páros' : 'egyéni'} meccse.</div></div>`;
+      const rows = k === 'singles' ? h2h : partners;
+      return `
+        <div class="kpanel" data-k="${k}">
+          <div class="stats" style="margin-top:0">
+            <div class="stat"><b>${n}</b><span>meccs</span></div>
+            <div class="stat"><b style="color:var(--win)">${st.wins}</b><span>győzelem</span></div>
+            <div class="stat"><b style="color:var(--loss)">${st.losses}</b><span>vereség</span></div>
+            <div class="stat"><b>${pct(st)}</b><span>győzelmi arány</span></div>
+            <div class="stat"><b>${st.best}</b><span>csúcs ELO</span></div>
+            <div class="stat"><b>${streak(st)}</b><span>sorozat</span></div>
+          </div>
+          <div class="card chart-box" style="margin-top:10px"><canvas id="chart-${k === 'singles' ? 's' : 'd'}"></canvas></div>
+          ${rows.length ? fold(k === 'singles' ? 'Egymás ellen' : 'Páros társak', rows.length, recTable(rows)) : ''}
+        </div>`;
+    };
+
     $app.innerHTML = `
       <div class="profile-head">
         <div class="avatar">${esc(p.name.trim().charAt(0).toUpperCase())}</div>
         <div class="profile-name">${esc(p.name)}</div>
         ${p.active ? '' : '<div class="profile-rank">Nem aktív játékos</div>'}
       </div>
-      <div class="elo-pair">
-        <div class="elo-box"><span>Egyéni</span><b>${p.elo}</b><small>${sPos && p.active ? `${sPos}. hely` : '–'}</small></div>
-        <div class="elo-box dbl"><span>Páros</span><b>${dGames ? p.elo_doubles : '–'}</b><small>${dPos ? `${dPos}. hely` : 'még nem játszott'}</small></div>
-      </div>
       ${myAwards.length ? `<div class="award-list">${myAwards.map((key) => {
         const a = awardOf(key);
         return `<button type="button" class="award" data-aw="${key}"><span class="award-ic">${a.icon}</span><span><b>${esc(a.name)}</b>${a.kind ? ` <i>${kindLabel(a.kind).toLowerCase()}</i>` : ''}<small>${esc(state.honors.current[key].text)}</small></span></button>`;
       }).join('')}</div>` : ''}
+
+      <div class="elo-pair ktoggle" role="tablist">
+        <button type="button" class="elo-box ${kind === 'singles' ? 'active' : ''}" data-pk="singles" role="tab"><span>Egyéni</span><b>${p.elo}</b><small>${sPos && p.active ? `${sPos}. hely` : '–'}</small></button>
+        <button type="button" class="elo-box dbl ${kind === 'doubles' ? 'active' : ''}" data-pk="doubles" role="tab"><span>Páros</span><b>${dGames ? p.elo_doubles : '–'}</b><small>${dPos ? `${dPos}. hely` : 'még nem játszott'}</small></button>
+      </div>
+      <div class="kslider" id="kslider">
+        <div class="ktrack ${kind === 'doubles' ? 'show-d' : ''}" id="ktrack">${panel('singles')}${panel('doubles')}</div>
+      </div>
+
       ${own ? '<a class="btn block stats-btn" href="#/statok">📊 Statisztikáim</a>' : ''}
       ${fold('🏆 Achievementek', `${achOf(p.id).size}/${ACH.length}`, achGrid(p.id))}
-
-      <div class="section-title">Egyéni</div>
-      <div class="stats">
-        <div class="stat"><b>${games}</b><span>meccs</span></div>
-        <div class="stat"><b style="color:var(--win)">${s.wins}</b><span>győzelem</span></div>
-        <div class="stat"><b style="color:var(--loss)">${s.losses}</b><span>vereség</span></div>
-        <div class="stat"><b>${pct(s)}</b><span>győzelmi arány</span></div>
-        <div class="stat"><b>${s.best}</b><span>csúcs ELO</span></div>
-        <div class="stat"><b>${streak(s)}</b><span>sorozat</span></div>
-      </div>
-      <div class="card chart-box" style="margin-top:10px">${s.history.length ? '<canvas id="chart-s"></canvas>' : '<div class="empty">Még nincs egyéni meccse.</div>'}</div>
-      ${h2h.length ? fold('Egymás ellen', h2h.length, recTable(h2h)) : ''}
-
-      ${dGames ? `
-        <div class="section-title">Páros</div>
-        <div class="stats">
-          <div class="stat"><b>${dGames}</b><span>meccs</span></div>
-          <div class="stat"><b>${pct(d)}</b><span>győzelmi arány</span></div>
-          <div class="stat"><b>${d.best}</b><span>csúcs ELO</span></div>
-        </div>
-        <div class="card chart-box" style="margin-top:10px"><canvas id="chart-d"></canvas></div>
-        ${partners.length ? fold('Páros társak', partners.length, recTable(partners)) : ''}` : ''}
 
       ${recent.length ? `<div class="section-title">Utolsó meccsek</div>${matchListByDay(recent)}` : ''}
 
@@ -936,6 +1006,27 @@
           <button class="btn danger block" id="logout">Kijelentkezés / fiókváltás</button>
         </div>` : ''}
     `;
+
+    // Egyéni / Páros váltó: a doboz magassága mindig az aktuális panelhez igazodik
+    const slider = $app.querySelector('#kslider');
+    const track = $app.querySelector('#ktrack');
+    const fit = () => {
+      const pnl = track.querySelector(`.kpanel[data-k="${state.profileKind}"]`);
+      if (pnl) slider.style.height = pnl.offsetHeight + 'px';
+    };
+    $app.querySelectorAll('[data-pk]').forEach((b) => {
+      b.onclick = () => {
+        state.profileKind = b.dataset.pk;
+        $app.querySelectorAll('[data-pk]').forEach((x) => x.classList.toggle('active', x === b));
+        track.classList.toggle('show-d', state.profileKind === 'doubles');
+        fit();
+      };
+    });
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(fit);
+      track.querySelectorAll('.kpanel').forEach((x) => ro.observe(x));
+    }
+    fit();
 
     bindMatchCards();
     const lo = $app.querySelector('#logout');
@@ -950,6 +1041,7 @@
       if (cs) drawChart(cs, s.history, '#c6ff3d', 'rgba(198,255,61,');
       const cd = $app.querySelector('#chart-d');
       if (cd) drawChart(cd, d.history, '#ff7a1a', 'rgba(255,122,26,');
+      fit();
     }
   }
 
@@ -1132,15 +1224,15 @@
 
     // 5. Az idegeid
     const scored = mine.filter((r) => r.m.scoreW != null);
-    const tight = scored.filter((r) => r.m.scoreW - r.m.scoreL <= 2);
+    const tight = scored.filter((r) => isTiebreak(r.m));
     const tw = tight.filter((r) => r.won).length;
     const avg = (rs) => (rs.length ? (rs.reduce((t, r) => t + r.m.scoreW - r.m.scoreL, 0) / rs.length).toFixed(1).replace('.', ',') : null);
     const aw = avg(scored.filter((r) => r.won)); const al = avg(scored.filter((r) => !r.won));
     const nerves = card('🧠', 'Az idegeid', scored.length ? `
-      <div class="big-num">${pct(tw, tight.length)}<small>${tight.length ? `győzelem a szoros meccseken (${tw}/${tight.length})` : 'még nem volt szoros meccsed'}</small></div>
+      <div class="big-num">${pct(tw, tight.length)}<small>${tight.length ? `győzelem a szoros meccseken (${tw}/${tight.length})` : 'még nem volt tiebreakes meccsed'}</small></div>
       ${aw ? `<div class="sline">Ha nyersz, átlagosan <b>${aw}</b> ponttal nyersz.</div>` : ''}
       ${al ? `<div class="sline">Ha kikapsz, átlagosan <b>${al}</b> ponttal kapsz ki.</div>` : ''}
-      <div class="hint">Szoros: legfeljebb 2 pont különbség. Csak a beírt eredményű meccsek számítanak.</div>`
+      <div class="hint">Szoros meccs: 10:10 után tiebreak. Csak a beírt eredményű meccsek számítanak.</div>`
       : '<div class="hint">Ehhez beírt eredményű meccsek kellenek.</div>');
 
     // 6. Célpont
@@ -1487,7 +1579,7 @@
     }, true);
 
     subscribe();
-    window.addEventListener('hashchange', () => { route(); window.scrollTo(0, 0); });
+    window.addEventListener('hashchange', () => { state.profileKind = 'singles'; route(); window.scrollTo(0, 0); });
     // ha a telefon visszatér az apphoz, frissítünk (háttérben lemaradhatott valami)
     document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleReload(); });
     route();
