@@ -31,6 +31,7 @@
     stats: { singles: new Map(), doubles: new Map() },
     view: null,
     matchesKind: 'singles',  // Meccsek fül szűrője
+    profileKind: 'singles',  // Profil: egyéni vagy páros statok
     newKind: 'singles',      // Új meccs: egyéni vagy páros
     feedLimit: 40,
     adminMatchLimit: 30,
@@ -112,7 +113,7 @@
     finally { if (btn && btn.isConnected) { btn.disabled = false; btn.innerHTML = btn.dataset.label; } }
   }
 
-  function closeModal() { $modal.hidden = true; $modal.innerHTML = ''; }
+  function closeModal() { $modal.hidden = true; $modal.innerHTML = ''; document.querySelectorAll('.confetti').forEach((c) => c.remove()); }
 
   // Felugró ablak. onOk nélkül csak egy "Bezárás" gomb van rajta.
   function modal({ title, text = '', body = '', okText = 'Mentés', danger = false, onOk }) {
@@ -143,6 +144,61 @@
       if (ok) closeModal();
     };
     return form;
+  }
+
+  /* Kereshető névválasztó: a <select> megmarad (rejtve), fölé egy gomb kerül.
+     Koppintásra feljön a névlista, felül egy keresővel: ahogy gépelsz, szűkül. */
+  const fold2 = (t) => t.toLocaleLowerCase('hu').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  function enhanceSelect(sel) {
+    if (sel._pk) { sel._pk.sync(); return; }
+    sel.classList.add('sr-select');
+    sel.tabIndex = -1;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'select picker';
+    sel.after(btn);
+    const sync = () => {
+      const o = sel.selectedOptions[0];
+      btn.textContent = o ? o.textContent : '';
+      btn.classList.toggle('empty', !sel.value);
+    };
+    btn.onclick = () => openPicker(sel);
+    sel._pk = { sync };
+    sync();
+  }
+
+  function openPicker(sel) {
+    const opts = [...sel.options].filter((o) => o.value);
+    $modal.innerHTML = `
+      <div class="modal-box picker-box" role="dialog" aria-modal="true">
+        <input class="input" id="pk-q" type="search" placeholder="🔍 Kezdd el írni a nevet…" autocomplete="off" autocapitalize="off">
+        <div class="pk-list" id="pk-list"></div>
+        <button type="button" class="btn block ghost" data-close style="margin-top:10px">Mégse</button>
+      </div>`;
+    $modal.hidden = false;
+    const q = $modal.querySelector('#pk-q');
+    const list = $modal.querySelector('#pk-list');
+    const draw = () => {
+      const f = fold2(q.value.trim());
+      const hit = opts.filter((o) => !f || fold2(o.textContent).includes(f));
+      list.innerHTML = hit.map((o) => `<button type="button" class="pk-item ${o.value === sel.value ? 'on' : ''}" data-v="${esc(o.value)}">${esc(o.textContent)}</button>`).join('')
+        || '<div class="empty" style="padding:18px">Nincs ilyen nevű játékos.</div>';
+    };
+    const choose = (v) => {
+      closeModal();
+      sel.value = v;
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      sel._pk?.sync();
+    };
+    q.oninput = draw;
+    q.onkeydown = (e) => { if (e.key === 'Enter') { const first = list.querySelector('.pk-item'); if (first) { e.preventDefault(); choose(first.dataset.v); } } };
+    $modal.onclick = (e) => {
+      const it = e.target.closest('.pk-item');
+      if (it) choose(it.dataset.v);
+      else if (e.target === $modal || e.target.closest('[data-close]')) closeModal();
+    };
+    draw();
+    q.focus();
   }
 
   // Egyéni / Páros kapcsoló
@@ -551,6 +607,8 @@
       </div>`;
 
     $app.querySelectorAll('.tab').forEach((t) => { t.onclick = () => renderAuth(t.dataset.mode); });
+    const ls = $app.querySelector('#login-form [name=player]');
+    if (ls) enhanceSelect(ls);
 
     const lf = $app.querySelector('#login-form');
     if (lf) lf.onsubmit = (e) => {
@@ -799,6 +857,7 @@
         sel.innerHTML = '<option value="">Válassz…</option>' + list.filter((p) => !taken.has(p.id))
           .map((p) => `<option value="${p.id}" ${p.id === mine ? 'selected' : ''}>${esc(p.name)}${p.id === state.me.id ? ' (te)' : ''}</option>`).join('');
       }
+      selects.forEach(enhanceSelect);
       const full = f.sides.every((side) => side.every(Boolean));
       form.querySelector('#sn1').textContent = sideName(0);
       form.querySelector('#sn2').textContent = sideName(1);
@@ -895,44 +954,48 @@
         </table>
       </div>`;
 
+    const kind = state.profileKind;
+    const panel = (k) => {
+      const st = k === 'singles' ? s : d;
+      const n = st.wins + st.losses;
+      if (!n) return `<div class="kpanel" data-k="${k}"><div class="card empty"><span class="big">🏓</span>Még nincs ${k === 'doubles' ? 'páros' : 'egyéni'} meccse.</div></div>`;
+      const rows = k === 'singles' ? h2h : partners;
+      return `
+        <div class="kpanel" data-k="${k}">
+          <div class="stats" style="margin-top:0">
+            <div class="stat"><b>${n}</b><span>meccs</span></div>
+            <div class="stat"><b style="color:var(--win)">${st.wins}</b><span>győzelem</span></div>
+            <div class="stat"><b style="color:var(--loss)">${st.losses}</b><span>vereség</span></div>
+            <div class="stat"><b>${pct(st)}</b><span>győzelmi arány</span></div>
+            <div class="stat"><b>${st.best}</b><span>csúcs ELO</span></div>
+            <div class="stat"><b>${streak(st)}</b><span>sorozat</span></div>
+          </div>
+          <div class="card chart-box" style="margin-top:10px"><canvas id="chart-${k === 'singles' ? 's' : 'd'}"></canvas></div>
+          ${rows.length ? fold(k === 'singles' ? 'Egymás ellen' : 'Páros társak', rows.length, recTable(rows)) : ''}
+        </div>`;
+    };
+
     $app.innerHTML = `
       <div class="profile-head">
         <div class="avatar">${esc(p.name.trim().charAt(0).toUpperCase())}</div>
         <div class="profile-name">${esc(p.name)}</div>
         ${p.active ? '' : '<div class="profile-rank">Nem aktív játékos</div>'}
       </div>
-      <div class="elo-pair">
-        <div class="elo-box"><span>Egyéni</span><b>${p.elo}</b><small>${sPos && p.active ? `${sPos}. hely` : '–'}</small></div>
-        <div class="elo-box dbl"><span>Páros</span><b>${dGames ? p.elo_doubles : '–'}</b><small>${dPos ? `${dPos}. hely` : 'még nem játszott'}</small></div>
-      </div>
       ${myAwards.length ? `<div class="award-list">${myAwards.map((key) => {
         const a = awardOf(key);
         return `<button type="button" class="award" data-aw="${key}"><span class="award-ic">${a.icon}</span><span><b>${esc(a.name)}</b>${a.kind ? ` <i>${kindLabel(a.kind).toLowerCase()}</i>` : ''}<small>${esc(state.honors.current[key].text)}</small></span></button>`;
       }).join('')}</div>` : ''}
+
+      <div class="elo-pair ktoggle" role="tablist">
+        <button type="button" class="elo-box ${kind === 'singles' ? 'active' : ''}" data-pk="singles" role="tab"><span>Egyéni</span><b>${p.elo}</b><small>${sPos && p.active ? `${sPos}. hely` : '–'}</small></button>
+        <button type="button" class="elo-box dbl ${kind === 'doubles' ? 'active' : ''}" data-pk="doubles" role="tab"><span>Páros</span><b>${dGames ? p.elo_doubles : '–'}</b><small>${dPos ? `${dPos}. hely` : 'még nem játszott'}</small></button>
+      </div>
+      <div class="kslider" id="kslider">
+        <div class="ktrack ${kind === 'doubles' ? 'show-d' : ''}" id="ktrack">${panel('singles')}${panel('doubles')}</div>
+      </div>
+
       ${own ? '<a class="btn block stats-btn" href="#/statok">📊 Statisztikáim</a>' : ''}
       ${fold('🏆 Achievementek', `${achOf(p.id).size}/${ACH.length}`, achGrid(p.id))}
-
-      <div class="section-title">Egyéni</div>
-      <div class="stats">
-        <div class="stat"><b>${games}</b><span>meccs</span></div>
-        <div class="stat"><b style="color:var(--win)">${s.wins}</b><span>győzelem</span></div>
-        <div class="stat"><b style="color:var(--loss)">${s.losses}</b><span>vereség</span></div>
-        <div class="stat"><b>${pct(s)}</b><span>győzelmi arány</span></div>
-        <div class="stat"><b>${s.best}</b><span>csúcs ELO</span></div>
-        <div class="stat"><b>${streak(s)}</b><span>sorozat</span></div>
-      </div>
-      <div class="card chart-box" style="margin-top:10px">${s.history.length ? '<canvas id="chart-s"></canvas>' : '<div class="empty">Még nincs egyéni meccse.</div>'}</div>
-      ${h2h.length ? fold('Egymás ellen', h2h.length, recTable(h2h)) : ''}
-
-      ${dGames ? `
-        <div class="section-title">Páros</div>
-        <div class="stats">
-          <div class="stat"><b>${dGames}</b><span>meccs</span></div>
-          <div class="stat"><b>${pct(d)}</b><span>győzelmi arány</span></div>
-          <div class="stat"><b>${d.best}</b><span>csúcs ELO</span></div>
-        </div>
-        <div class="card chart-box" style="margin-top:10px"><canvas id="chart-d"></canvas></div>
-        ${partners.length ? fold('Páros társak', partners.length, recTable(partners)) : ''}` : ''}
 
       ${recent.length ? `<div class="section-title">Utolsó meccsek</div>${matchListByDay(recent)}` : ''}
 
@@ -943,6 +1006,27 @@
           <button class="btn danger block" id="logout">Kijelentkezés / fiókváltás</button>
         </div>` : ''}
     `;
+
+    // Egyéni / Páros váltó: a doboz magassága mindig az aktuális panelhez igazodik
+    const slider = $app.querySelector('#kslider');
+    const track = $app.querySelector('#ktrack');
+    const fit = () => {
+      const pnl = track.querySelector(`.kpanel[data-k="${state.profileKind}"]`);
+      if (pnl) slider.style.height = pnl.offsetHeight + 'px';
+    };
+    $app.querySelectorAll('[data-pk]').forEach((b) => {
+      b.onclick = () => {
+        state.profileKind = b.dataset.pk;
+        $app.querySelectorAll('[data-pk]').forEach((x) => x.classList.toggle('active', x === b));
+        track.classList.toggle('show-d', state.profileKind === 'doubles');
+        fit();
+      };
+    });
+    if (window.ResizeObserver) {
+      const ro = new ResizeObserver(fit);
+      track.querySelectorAll('.kpanel').forEach((x) => ro.observe(x));
+    }
+    fit();
 
     bindMatchCards();
     const lo = $app.querySelector('#logout');
@@ -957,6 +1041,7 @@
       if (cs) drawChart(cs, s.history, '#c6ff3d', 'rgba(198,255,61,');
       const cd = $app.querySelector('#chart-d');
       if (cd) drawChart(cd, d.history, '#ff7a1a', 'rgba(255,122,26,');
+      fit();
     }
   }
 
@@ -1494,7 +1579,7 @@
     }, true);
 
     subscribe();
-    window.addEventListener('hashchange', () => { route(); window.scrollTo(0, 0); });
+    window.addEventListener('hashchange', () => { state.profileKind = 'singles'; route(); window.scrollTo(0, 0); });
     // ha a telefon visszatér az apphoz, frissítünk (háttérben lemaradhatott valami)
     document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleReload(); });
     route();
