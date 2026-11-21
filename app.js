@@ -330,7 +330,7 @@
   const AWARDS = {
     magyar: { icon: '🇭🇺', name: 'A legnagyobb magyar', both: true, rule: 'Egyszerre vezeti az egyéni és a páros ranglistát. Ha nincs ilyen ember, senki nem kapja meg.' },
     verhetetlen: { icon: '🔥', name: 'Verhetetlen', rule: 'A leghosszabb jelenlegi győzelmi sorozat (legalább 3).' },
-    feltorekvo: { icon: '🚀', name: 'Feltörekvő', rule: 'Aki 14 napja még 1000 pont alatt volt, és azóta a legtöbbet javított (legalább +30).' },
+    feltorekvo: { icon: '🚀', name: 'Feltörekvő', rule: 'Aki 7 napja még 1000 pont alatt volt, és azóta a legtöbbet javított (legalább +30).' },
     unemployed: { icon: '🛋️', name: 'The unemployed friend', both: true, rule: 'A legtöbb meccs az elmúlt 7 napban (egyéni és páros együtt, legalább 3).' },
     feketelo: { icon: '🐎', name: 'Fekete ló', rule: 'Az elmúlt 7 nap legnagyobb meglepetés-győzelme: a legnagyobb pontkülönbséggel erősebb ellenfél legyőzése (legalább 50).' },
     nyugalom: { icon: '🧘', name: 'Nyugalom szigete', rule: 'A legjobb győzelmi arány a szoros meccseken, vagyis ahol 10:10 után tiebreak jött. Legalább 5 ilyen meccs kell hozzá.' },
@@ -375,12 +375,11 @@
     // Ki viszi a díjat t időpontban? (i = az utolsó már lejátszott meccs indexe)
     function evalAwards(t, i, prev) {
       const res = {};
-      const w7 = []; const w14 = [];
+      const w7 = [];
       for (let j = i; j >= 0; j--) {
         const x = chrono[j]; const tx = Date.parse(x.at);
-        if (tx <= t - 14 * DAY) break;
-        w14.push(x);
-        if (tx > t - 7 * DAY) w7.push(x);
+        if (tx <= t - 7 * DAY) break;
+        w7.push(x);
       }
       // a legnagyobb értékű nyer; egyenlőségnél marad a régi gazda
       const pick = (key, scores, min, text) => {
@@ -406,10 +405,10 @@
         pick(`verhetetlen:${k}`, streak[k], 3, (v) => `${v} győzelem zsinórban`);
 
         const start = new Map();
-        for (const x of w14) if (x.kind === k) for (const id of [...x.winners, ...x.losers]) start.set(id, x.before[id]);
+        for (const x of w7) if (x.kind === k) for (const id of [...x.winners, ...x.losers]) start.set(id, x.before[id]);
         const gain = new Map();
         for (const [id, s] of start) if (s < 1000) gain.set(id, rating[k].get(id) - s);
-        pick(`feltorekvo:${k}`, gain, 30, (v, id) => `+${v} pont 14 nap alatt (${start.get(id)} pontról indult)`);
+        pick(`feltorekvo:${k}`, gain, 30, (v, id) => `+${v} pont 7 nap alatt (${start.get(id)} pontról indult)`);
 
         let up = null;
         for (const x of w7) {
