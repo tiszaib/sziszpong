@@ -1,4 +1,5 @@
 // SZISZpong · Útválasztás: melyik képernyő jelenjen meg
+import { renderAchievements } from './achievements.js';
 import { renderAdmin } from './admin.js';
 import { renderAuth } from './auth.js';
 import { $modal, $nav, charts, closeModal, state } from './core.js';
@@ -24,15 +25,16 @@ export function route() {
   else if (page === 'uj') { state.view = 'new'; renderNewMatch(); }
   else if (page === 'profil') { state.view = 'profile'; renderProfile(parts[1] || state.me.id); }
   else if (page === 'statok') { state.view = 'stats'; renderMyStats(); }
+  else if (page === 'achi') { state.view = 'achi'; renderAchievements(parts[1] || state.me.id); }
   else if (page === 'admin' && state.me.is_admin) { state.view = 'admin'; renderAdmin(); }
   else { state.view = 'singles'; renderRanking('singles'); }
-  const navKey = ['admin', 'stats'].includes(state.view) ? 'profile' : state.view;
+  const navKey = ['admin', 'stats', 'achi'].includes(state.view) ? 'profile' : state.view;
   $nav.querySelectorAll('.nav-item').forEach((a) => a.classList.toggle('active', a.dataset.route === navKey));
   setTimeout(checkNewAchievements, 0);
 }
 
 export function rerenderIfLive() {
-  if (['singles', 'doubles', 'matches', 'profile', 'stats'].includes(state.view) && $modal.hidden) {
+  if (['singles', 'doubles', 'matches', 'profile', 'stats', 'achi'].includes(state.view) && $modal.hidden) {
     const y = window.scrollY;
     route();
     window.scrollTo(0, y);

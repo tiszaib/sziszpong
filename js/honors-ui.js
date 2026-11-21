@@ -1,6 +1,6 @@
 // SZISZpong · Különdíjak és achievementek a felületen, gratuláció
 import { $modal, dateTime, esc, kindLabel, modal, namesOf, state, store } from './core.js';
-import { ACH, achOf, awardOf } from './honors.js';
+import { ACH, achDef, achLevel, achOf, awardOf, tierColor } from './honors.js';
 
 /* ---------- Különdíjak és achievementek a felületen ---------- */
 export const awardIcons = (pid, kind) => (state.honors?.awardsOf.get(pid) || [])
@@ -20,15 +20,57 @@ export function openAward(key) {
   });
 }
 
+// Egy achievement állása egy játékosnál
+export function achInfo(pid, a) {
+  const r = achOf(pid).get(a.id) || { value: 0, dates: [] };
+  const level = r.dates.length;
+  const max = a.tiers.length;
+  const next = a.tiers[level] || null;
+  const name = a.tiers[Math.max(0, level - 1)].name;
+  const color = level ? tierColor(a, level) : null;
+  return { value: r.value, dates: r.dates, level, max, next, name, color, done: level === max };
+}
+
+// Hány %-ának van meg legalább az adott szinten (aktív, már játszott játékosok között)
+export function rarity(a, lvl = 1) {
+  const pool = state.players.filter((p) => p.active && (state.honors?.per.get(p.id)?.games || 0) > 0);
+  if (!pool.length) return 0;
+  return Math.round((pool.filter((p) => achLevel(p.id, a.id) >= lvl).length / pool.length) * 100);
+}
+
+const tierDot = (c) => `<i class="tdot" style="--tc:${c[1]}"></i>`;
+
 export function openAch(id, pid) {
-  const a = ACH.find((x) => x.id === id);
-  const at = achOf(pid).get(id);
+  const a = achDef(id);
+  const x = achInfo(pid, a);
+  const multi = x.max > 1;
+  const rare = rarity(a);
+  // kinek van meg a legmagasabb elért szinten
+  const pool = state.players.filter((p) => p.active);
+  const topLvl = Math.max(0, ...pool.map((p) => achLevel(p.id, a.id)));
+  const tops = topLvl ? pool.filter((p) => achLevel(p.id, a.id) === topLvl).map((p) => p.name) : [];
   modal({
     body: `
-      <div class="ach-big ${at ? '' : 'off'}">${a.icon}</div>
-      <h3 style="text-align:center;margin-bottom:6px">${esc(a.name)}</h3>
-      <p style="text-align:center">${esc(a.desc)}</p>
-      <p class="hint" style="text-align:center">${at ? `Megszerezve: ${dateTime(at)}` : 'Még nincs meg.'}</p>`,
+      <div class="achd-head">
+        <div class="achd-ic ${x.level ? '' : 'off'}" style="--tc:${x.color ? x.color[1] : 'var(--border)'}">${a.icon}</div>
+        <h3>${esc(x.name)}</h3>
+        ${multi && x.level ? `<div class="achd-lvl" style="color:${x.color[1]}">${x.level}. szint · ${x.color[0]}</div>` : ''}
+        <p>${esc(a.desc)}</p>
+      </div>
+      ${multi ? `<div class="ladder">${a.tiers.map((t, i) => {
+        const got = i < x.level; const isNext = i === x.level;
+        const c = tierColor(a, i + 1);
+        return `<div class="rung ${got ? 'got' : isNext ? 'next' : 'lock'}" style="--tc:${c[1]}">
+          <span class="rung-st">${got ? '✓' : isNext ? '▸' : '🔒'}</span>
+          <span class="rung-nm"><b>${esc(t.name)}</b><small>${t.n} ${esc(a.unit)}</small></span>
+          <span class="rung-r">${got ? dateTime(x.dates[i]) : isNext ? `${x.value} / ${t.n}` : ''}</span>
+        </div>`;
+      }).join('')}</div>`
+        : `<p class="hint" style="text-align:center">${x.level ? `Megszerezve: ${dateTime(x.dates[0])}` : 'Még nincs meg.'}</p>`}
+      <div class="achd-foot">
+        <span>${rare <= 15 ? '💎 ' : ''}A játékosok ${rare}%-ának van meg.</span>
+        ${tops.length ? `<span>${multi ? `Legmagasabb szinten (${topLvl}.)` : 'Megvan'}: <b>${esc(tops.slice(0, 4).join(', '))}${tops.length > 4 ? ` +${tops.length - 4}` : ''}</b></span>` : ''}
+      </div>`,
   });
 }
 
@@ -38,14 +80,6 @@ export const fold = (title, count, inner, open = false) => `
     <summary><span class="fold-arrow">▸</span><span class="fold-title">${title}</span>${count != null ? `<span class="fold-count">${count}</span>` : ''}</summary>
     <div class="fold-body">${inner}</div>
   </details>`;
-
-export function achGrid(pid) {
-  const mine = achOf(pid);
-  return `<div class="ach-grid">${ACH.map((a) => `
-    <button type="button" class="ach ${mine.has(a.id) ? '' : 'off'}" data-ach="${a.id}" data-pid="${pid}">
-      <span class="ach-ic">${a.icon}</span><span class="ach-nm">${esc(a.name)}</span>
-    </button>`).join('')}</div>`;
-}
 
 // Különdíj-váltás sáv a meccslistában
 export function bandHTML(e) {
@@ -57,26 +91,35 @@ export function bandHTML(e) {
     </div>`;
 }
 
-// Gratuláció az új achievementekért (a telefon megjegyzi, miket látott már)
+// Gratuláció az új achievementekért és szintekért (a telefon megjegyzi, miket látott már)
 export function checkNewAchievements() {
   if (!state.me || !state.honors || !$modal.hidden) return;
   const key = 'sziszpong.seenAch.' + state.me.id;
-  const earned = [...achOf(state.me.id).keys()];
-  let seen = [];
-  try { seen = JSON.parse(store.get(key) || '[]'); } catch { seen = []; }
-  const fresh = earned.filter((id) => !seen.includes(id));
+  const earned = [];
+  for (const a of ACH) for (let l = 1; l <= achLevel(state.me.id, a.id); l++) earned.push(`${a.id}:${l}`);
+  let seen = null;
+  try { seen = JSON.parse(store.get(key) || 'null'); } catch { seen = null; }
   store.set(key, JSON.stringify(earned));
+  // régi (szintek előtti) formátum: amit eddig láttál, azt nem mutatjuk újra
+  if (Array.isArray(seen) && seen.length && !seen.some((x) => String(x).includes(':'))) return;
+  const fresh = earned.filter((x) => !(seen || []).includes(x));
   if (!fresh.length) return;
-  const list = fresh.map((id) => ACH.find((a) => a.id === id));
+  // egy achievementből csak a legmagasabb új szintet mutatjuk
+  const top = new Map();
+  for (const x of fresh) { const [id, l] = x.split(':'); if (!top.has(id) || +l > top.get(id)) top.set(id, +l); }
+  const list = [...top].map(([id, l]) => `${id}:${l}`).map((x) => {
+    const [id, l] = x.split(':'); const a = achDef(id);
+    return { a, name: a.tiers[l - 1].name, color: tierColor(a, +l), lvl: +l };
+  });
+  const item = (x) => `<div class="congrats-item" style="--tc:${x.color[1]}"><span class="ci-ic">${x.a.icon}</span><div><b>${esc(x.name)}</b><small>${x.a.tiers.length > 1 ? `${x.lvl}. szint (${x.color[0]}) · ` : ''}${x.a.tiers.length > 1 ? `${x.a.tiers[x.lvl - 1].n} ${esc(x.a.unit)}` : esc(x.a.desc)}</small></div></div>`;
   modal({
     body: `
       <div class="congrats">
-        <div class="congrats-ic">${list.length === 1 ? list[0].icon : '🏆'}</div>
-        <h3>${list.length === 1 ? 'Új achievement!' : `${list.length} új achievement!`}</h3>
-        ${list.length <= 3
-          ? list.map((a) => `<div class="congrats-item"><span>${a.icon}</span><div><b>${esc(a.name)}</b><small>${esc(a.desc)}</small></div></div>`).join('')
-          : `<div class="ach-grid">${list.map((a) => `<div class="ach"><span class="ach-ic">${a.icon}</span><span class="ach-nm">${esc(a.name)}</span></div>`).join('')}</div>
-             <p class="hint" style="margin-top:12px">A profilodon megnézheted, melyik mit jelent.</p>`}
+        <div class="congrats-ic">${list.length === 1 ? list[0].a.icon : '🏆'}</div>
+        <h3>${list.length === 1 ? (list[0].lvl > 1 ? 'Szintet léptél!' : 'Új achievement!') : `${list.length} új achievement!`}</h3>
+        ${list.slice(0, 6).map(item).join('')}
+        ${list.length > 6 ? `<p class="hint">…és még ${list.length - 6}.</p>` : ''}
+        <a class="btn block" href="#/achi" style="margin-top:6px">🏆 Megnézem az achievementjeimet</a>
       </div>`,
   });
   confetti();
