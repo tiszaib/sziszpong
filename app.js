@@ -257,12 +257,13 @@
     { id: 's5', icon: '⚡', name: 'Megállíthatatlan', desc: '5 győzelem zsinórban (egyéniben vagy párosban).' },
     { id: 's7', icon: '🤷', name: '67', desc: '7 győzelem zsinórban (egyéniben vagy párosban).' },
     { id: 's10', icon: '😈', name: 'Menace to society', desc: '10 győzelem zsinórban (egyéniben vagy párosban).' },
-    { id: 'throne', icon: '👑', name: 'VZS-trónfosztó', desc: 'Voltál már 1. helyen (egyéniben vagy párosban).' },
+    { id: 'throne', icon: '👑', name: 'VZS-trónfosztó', desc: 'Voltál már 1. helyen az egyéni ranglistán.' },
+    { id: 'throne_d', icon: '👯', name: 'Dinamikus duó', desc: 'Voltál már 1. helyen a páros ranglistán.' },
     { id: 'bagel', icon: '🍞', name: 'Mászatott', desc: '11:0-ra nyertél egy meccset.' },
     { id: 'nusi', icon: '🫠', name: 'Nusi néni', desc: '11:0-ra kikaptál egy meccsen.' },
     { id: 'king', icon: '🗡️', name: 'Királygyilkos', desc: 'Egyéniben legyőzted az akkori 1. helyezettet.' },
     { id: 'stonks', icon: '📈', name: 'Stonks', desc: 'Egy meccsen +25 pontot vagy többet szereztél.' },
-    { id: 'friend', icon: '🌍', name: 'Mindenki barátja', desc: 'Minden aktív játékos ellen játszottál már.' },
+    { id: 'friend', icon: '🌍', name: 'Mindenki barátja', desc: 'Minden aktív játékos ellen játszottál már (aktív: volt meccse az elmúlt 2 hétben).' },
     { id: 'lotyo', icon: '💞', name: 'Páros lotyó', desc: '5 különböző páros társ.' },
     { id: 'night', icon: '🦉', name: 'DB-n emlegetett személy', desc: '10 meccs éjfél és hajnali 5 között.' },
     { id: 'early', icon: '☀️', name: 'Early Bird', desc: 'Meccs reggel 5 és 8 között.' },
@@ -276,7 +277,7 @@
     feltorekvo: { icon: '🚀', name: 'Feltörekvő', rule: 'Aki 14 napja még 1000 pont alatt volt, és azóta a legtöbbet javított (legalább +30).' },
     unemployed: { icon: '🛋️', name: 'The unemployed friend', both: true, rule: 'A legtöbb meccs az elmúlt 7 napban (egyéni és páros együtt, legalább 3).' },
     feketelo: { icon: '🐎', name: 'Fekete ló', rule: 'Az elmúlt 7 nap legnagyobb meglepetés-győzelme: a legnagyobb pontkülönbséggel erősebb ellenfél legyőzése (legalább 50).' },
-    nyugalom: { icon: '🧘', name: 'Nyugalom szigete', rule: 'A legjobb győzelmi arány a szoros meccseken (legfeljebb 2 pont különbség). Legalább 5 szoros meccs kell hozzá.' },
+    nyugalom: { icon: '🧘', name: 'Nyugalom szigete', rule: 'A legjobb győzelmi arány a szoros meccseken, vagyis ahol 10:10 után tiebreak jött. Legalább 5 ilyen meccs kell hozzá.' },
     adomanyozo: { icon: '🎁', name: 'ELO adományozó', rule: 'A legtöbb elvesztett pont az elmúlt 7 napban.' },
   };
   const awardKeys = (kind) => Object.keys(AWARDS).map((a) => (AWARDS[a].both ? a : `${a}:${kind}`));
@@ -290,6 +291,8 @@
     const rating = mk(); const played = mk(); const streak = mk(); const close = mk(); const throne = mk();
     const lead = { singles: { id: null, since: 0 }, doubles: { id: null, since: 0 } };
     const ach = new Map();
+    const lastPlayed = new Map();   // aktív = volt meccse az elmúlt 14 napban
+    const recent = (id, t) => active.has(id) && (lastPlayed.get(id) ?? -Infinity) > t - 14 * DAY;
     const per = new Map();
     const events = [];
     let holders = {};
@@ -327,7 +330,7 @@
       const pick = (key, scores, min, text) => {
         let best = -Infinity; let cands = [];
         for (const [id, v] of scores) {
-          if (!active.has(id) || v < min) continue;
+          if (!recent(id, t) || v < min) continue;
           if (v > best) { best = v; cands = [id]; } else if (v === best) cands.push(id);
         }
         if (!cands.length) return;
@@ -354,7 +357,7 @@
 
         let up = null;
         for (const x of w7) {
-          if (x.kind !== k || !x.winners.every((id) => active.has(id))) continue;
+          if (x.kind !== k || !x.winners.every((id) => recent(id, t))) continue;
           const gap = Math.round(avgBefore(x, x.losers) - avgBefore(x, x.winners));
           if (gap < 50) continue;
           const inc = prev[`feketelo:${k}`]?.matchId === x.id;
@@ -377,7 +380,7 @@
       const k = m.kind; const t = Date.parse(m.at);
       const king = k === 'singles' ? leaderOf('singles') : null;
       const d = new Date(m.at); const h = d.getHours(); const wd = d.getDay();
-      const closeGame = m.scoreW != null && m.scoreW - m.scoreL <= 2;
+      const closeGame = isTiebreak(m);
       for (const [ids, won] of [[m.winners, true], [m.losers, false]]) {
         for (const id of ids) {
           rating[k].set(id, m.after[id]);
@@ -411,13 +414,21 @@
           }
         }
       }
+      // Mindenki barátja: az akkor aktív (2 hétben játszó) összes játékos ellen játszott már
+      for (const id of [...m.winners, ...m.losers]) lastPlayed.set(id, t);
+      for (const id of [...m.winners, ...m.losers]) {
+        const p = per.get(id);
+        const others = [...lastPlayed.keys()].filter((o) => o !== id && recent(o, t));
+        if (others.length >= 3 && others.every((o) => p.opp.has(o))) give(id, 'friend', m.at);
+      }
+
       // első hely változása (VZS-trónfosztó és trónon töltött idő)
       const L = lead[k]; const now = leaderOf(k);
       if (now !== L.id) {
         if (L.id) throne[k].set(L.id, (throne[k].get(L.id) || 0) + t - L.since);
         L.id = now; L.since = t;
       }
-      if (now) give(now, 'throne', m.at);
+      if (now) give(now, k === 'singles' ? 'throne' : 'throne_d', m.at);
 
       // különdíjak gazdaváltása
       const next = evalAwards(t, i, holders);
@@ -429,14 +440,6 @@
       holders = next;
     });
 
-    // Mindenki barátja: minden mostani aktív játékos ellen játszott már
-    for (const id of active) {
-      const p = per.get(id); if (!p) continue;
-      const others = [...active].filter((o) => o !== id);
-      if (others.length >= 3 && others.every((o) => p.opp.has(o))) {
-        give(id, 'friend', others.map((o) => p.opp.get(o)).sort().pop());
-      }
-    }
 
     const nowT = Date.now();
     const throneNow = mk();
@@ -461,6 +464,9 @@
     }
     state.honors = { ach, events, byMatch, current, awardsOf, throne: throneNow, per, close, leader: { singles: lead.singles.id, doubles: lead.doubles.id } };
   }
+
+  // Szoros meccs: 10:10 után tiebreak (a vesztes is legalább 10 pontot szerzett)
+  function isTiebreak(m) { return m.scoreW != null && m.scoreL >= 10; }
 
   const achOf = (pid) => state.honors?.ach.get(pid) || new Map();
 
@@ -745,7 +751,7 @@
         <div class="vs-badge">VS</div>
         <div class="field"><span>${dbl ? '2. csapat' : 'Játékos 2'}</span><div class="slots">${f.sides[1].map((_, i) => slot(1, i)).join('')}</div></div>
 
-        <div class="field"><span>Eredmény (nem kötelező)</span>
+        <div class="field"><span>Eredmény</span>
           <div class="score-row">
             <input class="input score-in" name="s1" type="number" inputmode="numeric" min="0" max="99" placeholder="–">
             <b>:</b>
@@ -800,8 +806,8 @@
       // ha mindkét pontszám megvan, abból dől el a győztes
       const [a, b] = scores();
       const byScore = a != null && b != null && a !== b;
-      if (byScore) f.winner = a > b ? 1 : 2;
-      form.querySelector('#wpbox').hidden = byScore;
+      f.winner = byScore ? (a > b ? 1 : 2) : 0;   // a győztest mindig a pontszám dönti el
+      form.querySelector('#wpbox').hidden = true;
       form.querySelector('#wp').innerHTML = [1, 2].map((s) => `
         <button type="button" class="wp ${f.winner === s ? 'active' : ''}" data-s="${s}" ${full ? '' : 'disabled'}>
           ${esc(sideName(s - 1))}<small>${f.winner === s ? 'nyert 🏆' : 'nyert?'}</small>
@@ -834,8 +840,9 @@
     form.onsubmit = (e) => {
       e.preventDefault();
       const [a, b] = scores();
-      if ((a == null) !== (b == null)) { toast('Mindkét pontszámot írd be, vagy egyiket se.', 'error'); return; }
-      if (a != null && a === b) { toast('Döntetlen nem lehet.', 'error'); return; }
+      if (a == null || b == null) { toast('Írd be mindkét pontszámot.', 'error'); return; }
+      if (a === b) { toast('Döntetlen nem lehet.', 'error'); return; }
+      if (Math.min(a, b) >= 10 && Math.abs(a - b) !== 2) { toast('10:10 után kettővel kell nyerni (pl. 12:10).', 'error'); return; }
       if (!f.winner) return;
       const W = f.sides[f.winner - 1]; const L = f.sides[2 - f.winner];
       const sW = f.winner === 1 ? a : b; const sL = f.winner === 1 ? b : a;
@@ -1132,15 +1139,15 @@
 
     // 5. Az idegeid
     const scored = mine.filter((r) => r.m.scoreW != null);
-    const tight = scored.filter((r) => r.m.scoreW - r.m.scoreL <= 2);
+    const tight = scored.filter((r) => isTiebreak(r.m));
     const tw = tight.filter((r) => r.won).length;
     const avg = (rs) => (rs.length ? (rs.reduce((t, r) => t + r.m.scoreW - r.m.scoreL, 0) / rs.length).toFixed(1).replace('.', ',') : null);
     const aw = avg(scored.filter((r) => r.won)); const al = avg(scored.filter((r) => !r.won));
     const nerves = card('🧠', 'Az idegeid', scored.length ? `
-      <div class="big-num">${pct(tw, tight.length)}<small>${tight.length ? `győzelem a szoros meccseken (${tw}/${tight.length})` : 'még nem volt szoros meccsed'}</small></div>
+      <div class="big-num">${pct(tw, tight.length)}<small>${tight.length ? `győzelem a szoros meccseken (${tw}/${tight.length})` : 'még nem volt tiebreakes meccsed'}</small></div>
       ${aw ? `<div class="sline">Ha nyersz, átlagosan <b>${aw}</b> ponttal nyersz.</div>` : ''}
       ${al ? `<div class="sline">Ha kikapsz, átlagosan <b>${al}</b> ponttal kapsz ki.</div>` : ''}
-      <div class="hint">Szoros: legfeljebb 2 pont különbség. Csak a beírt eredményű meccsek számítanak.</div>`
+      <div class="hint">Szoros meccs: 10:10 után tiebreak. Csak a beírt eredményű meccsek számítanak.</div>`
       : '<div class="hint">Ehhez beírt eredményű meccsek kellenek.</div>');
 
     // 6. Célpont
