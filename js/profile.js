@@ -2,8 +2,8 @@
 import { localLogout } from './auth.js';
 import { $app, charts, esc, kindLabel, nameOf, playerById, ranked, sb, state, toast } from './core.js';
 import { statsOf } from './data.js';
-import { ACH, achOf, awardOf } from './honors.js';
-import { achGrid, fold } from './honors-ui.js';
+import { ACH_LEVELS, achLevels, awardOf } from './honors.js';
+import { fold } from './honors-ui.js';
 import { bindMatchCards, matchListByDay } from './matches.js';
 import { duration } from './mystats.js';
 
@@ -78,7 +78,7 @@ export function renderProfile(id) {
     </div>
 
     ${own ? '<a class="btn block stats-btn" href="#/statok">📊 Statisztikáim</a>' : ''}
-    ${fold('🏆 Achievementek', `${achOf(p.id).size}/${ACH.length}`, achGrid(p.id))}
+    <a class="btn block ach-btn" href="#/achi/${p.id}"><span>🏆 Achievementek</span><b>${achLevels(p.id)} / ${ACH_LEVELS} szint</b></a>
 
     ${recent.length ? `<div class="section-title">Utolsó meccsek</div>${matchListByDay(recent)}` : ''}
 

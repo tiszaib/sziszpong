@@ -8,34 +8,42 @@ import { activePlayers, namesOf, state } from './core.js';
    meccs a hozzá tartozó achievementet is viszi.
    ------------------------------------------------------------------ */
 export const DAY = 86400000;
-export const GAME_STEPS = [[10, 'g10'], [20, 'g20'], [50, 'g50'], [100, 'g100'], [200, 'g200']];
-export const STREAK_STEPS = [[3, 's3'], [5, 's5'], [7, 's7'], [10, 's10']];
 
+// Achievementek. Mindegyiknek van egy vagy több szintje: [darabszám, a szint neve].
+// unit = mit számolunk (a haladásnál ez látszik, pl. "27 / 40 éjszakai meccs").
+const T = (...pairs) => pairs.map(([n, name]) => ({ n, name }));
 export const ACH = [
-  { id: 'first', icon: '🐣', name: 'Első labda', desc: 'Lejátszottad az első meccsed.' },
-  { id: 'firstwin', icon: '🩸', name: 'Első vér', desc: 'Megnyerted az első meccsed.' },
-  { id: 'firstdbl', icon: '🤝', name: 'Párban minden jobb', desc: 'Lejátszottad az első páros meccsed.' },
-  { id: 'g10', icon: '🏓', name: 'KGY-termi újonc', desc: '10 meccs (egyéni és páros együtt).' },
-  { id: 'g20', icon: '🎫', name: 'Klubtag', desc: '20 meccs (egyéni és páros együtt).' },
-  { id: 'g50', icon: '🤪', name: 'Fanatikus', desc: '50 meccs (egyéni és páros együtt).' },
-  { id: 'g100', icon: '🏛️', name: 'Kolis legenda', desc: '100 meccs (egyéni és páros együtt).' },
-  { id: 'g200', icon: '♾️', name: 'Örökös tag', desc: '200 meccs (egyéni és páros együtt).' },
-  { id: 's3', icon: '🛝', name: 'Csusza', desc: '3 győzelem zsinórban (egyéniben vagy párosban).' },
-  { id: 's5', icon: '⚡', name: 'Megállíthatatlan', desc: '5 győzelem zsinórban (egyéniben vagy párosban).' },
-  { id: 's7', icon: '🤷', name: '67', desc: '7 győzelem zsinórban (egyéniben vagy párosban).' },
-  { id: 's10', icon: '😈', name: 'Menace to society', desc: '10 győzelem zsinórban (egyéniben vagy párosban).' },
-  { id: 'throne', icon: '👑', name: 'VZS-trónfosztó', desc: 'Voltál már 1. helyen az egyéni ranglistán.' },
-  { id: 'throne_d', icon: '👯', name: 'Couple goals', desc: 'Voltál már 1. helyen a páros ranglistán.' },
-  { id: 'bagel', icon: '🍞', name: 'Mászatott', desc: '11:0-ra nyertél egy meccset.' },
-  { id: 'nusi', icon: '🫠', name: 'Nusi néni', desc: '11:0-ra kikaptál egy meccsen.' },
-  { id: 'king', icon: '🗡️', name: 'Királygyilkos', desc: 'Egyéniben legyőzted az akkori 1. helyezettet.' },
-  { id: 'stonks', icon: '📈', name: 'Stonks', desc: 'Egy meccsen +25 pontot vagy többet szereztél.' },
-  { id: 'friend', icon: '🌍', name: 'Mindenki barátja', desc: 'Minden aktív játékos ellen játszottál már (aktív: volt meccse az elmúlt 2 hétben).' },
-  { id: 'lotyo', icon: '💞', name: 'Páros lotyó', desc: '5 különböző páros társ.' },
-  { id: 'night', icon: '🦉', name: 'DB-n emlegetett személy', desc: '10 meccs éjfél és hajnali 5 között.' },
-  { id: 'early', icon: '☀️', name: 'Early Bird', desc: 'Meccs reggel 5 és 8 között.' },
-  { id: 'weekend', icon: '🏠', name: 'Hétvégi bentlakó', desc: '10 meccs hétvégén.' },
+  { id: 'first', group: 'Kezdő', icon: '🐣', desc: 'Játssz egy meccset.', unit: 'meccs', tiers: T([1, 'Első labda']) },
+  { id: 'firstwin', group: 'Kezdő', icon: '🩸', desc: 'Nyerj meg egy meccset.', unit: 'győzelem', tiers: T([1, 'Első vér']) },
+  { id: 'firstdbl', group: 'Kezdő', icon: '🤝', desc: 'Játssz egy páros meccset.', unit: 'páros meccs', tiers: T([1, 'Párban minden jobb']) },
+  { id: 'games', group: 'Meccsszám', icon: '🏓', desc: 'Lejátszott meccsek, egyéni és páros együtt.', unit: 'meccs',
+    tiers: T([10, 'KGY-termi újonc'], [20, 'Klubtag'], [50, 'Fanatikus'], [100, 'Kolis legenda'], [200, 'Örökös tag']) },
+  { id: 'streak', group: 'Győzelmi sorozat', icon: '🔥', desc: 'Győzelmek zsinórban, egyéniben vagy párosban.', unit: 'győzelem zsinórban',
+    tiers: T([3, 'Csusza'], [5, 'Megállíthatatlan'], [7, '67'], [10, 'Menace to society']) },
+  { id: 'throne', group: 'Ranglista', icon: '👑', desc: 'Legyél 1. az egyéni ranglistán.', unit: '', tiers: T([1, 'VZS-trónfosztó']) },
+  { id: 'throne_d', group: 'Ranglista', icon: '👯', desc: 'Legyél 1. a páros ranglistán.', unit: '', tiers: T([1, 'Couple goals']) },
+  { id: 'king', group: 'Ranglista', icon: '🗡️', desc: 'Egyéniben győzd le az akkori 1. helyezettet.', unit: 'legyőzött első helyezett',
+    tiers: T([1, 'Királygyilkos'], [3, 'Királygyilkos'], [10, 'Királygyilkos']) },
+  { id: 'bagel', group: 'Különleges', icon: '🍞', desc: 'Nyerj 11:0-ra.', unit: 'db 11:0',
+    tiers: T([1, 'Mászatott'], [3, 'Nusi néni kedvence'], [5, 'Bro...']) },
+  { id: 'stonks', group: 'Különleges', icon: '📈', desc: 'Szerezz egy meccsen +25 pontot vagy többet.', unit: 'meccs +25 ponttal',
+    tiers: T([1, 'STONKS'], [2, 'Hozamkedvelő']) },
+  { id: 'night', group: 'Különleges', icon: '🦉', desc: 'Meccsek éjfél és hajnali 5 között.', unit: 'éjszakai meccs',
+    tiers: T([10, 'DB-n emlegetett személy'], [20, 'Korán alvók kedvence'], [40, 'Csendháborító Champion']) },
+  { id: 'early', group: 'Különleges', icon: '☀️', desc: 'Meccsek reggel 5 és 8 között.', unit: 'reggeli meccs',
+    tiers: T([1, 'Early bird vagy turbina szökevény'], [5, 'Ki korán kel...'], [10, '...aranyat lel!'], [20, 'True early bird']) },
+  { id: 'weekend', group: 'Különleges', icon: '🏠', desc: 'Meccsek szombaton és vasárnap.', unit: 'hétvégi meccs',
+    tiers: T([10, 'Hétvégi bentlakó'], [20, 'Remete'], [40, 'Prime Robi']) },
+  { id: 'lotyo', group: 'Különleges', icon: '💞', desc: 'Különböző páros társak.', unit: 'különböző társ',
+    tiers: T([2, 'Páros lotyó'], [3, 'Páros lotyó'], [5, 'Páros lotyó']) },
+  { id: 'friend', group: 'Különleges', icon: '🌍', desc: 'Játssz minden aktív játékos ellen (aktív: volt meccse az elmúlt 2 hétben).', unit: '', tiers: T([1, 'Mindenki barátja']) },
+  { id: 'nusi', group: 'Különleges', icon: '🫠', desc: 'Kapj ki 11:0-ra.', unit: 'db 0:11', tiers: T([1, 'Nusi néni']) },
 ];
+export const achDef = (id) => ACH.find((a) => a.id === id);
+export const ACH_LEVELS = ACH.reduce((t, a) => t + a.tiers.length, 0);
+// Szint-színek: bronz, ezüst, arany, gyémánt, legenda. Az egyszintesek aranyak.
+export const TIER_COLORS = [['bronz', '#e39a5f'], ['ezüst', '#cfd6e6'], ['arany', '#ffd25a'], ['gyémánt', '#7fe3ff'], ['legenda', '#c58bff']];
+export const tierColor = (a, level) => (a.tiers.length === 1 ? TIER_COLORS[2] : TIER_COLORS[level - 1]);
 
 // Különdíjak. "both" = egy díj a két ranglistára együtt, különben egyéniben és párosban külön.
 export const AWARDS = {
@@ -64,12 +72,18 @@ export function computeHonors() {
   const events = [];
   let holders = {};
 
-  const give = (pid, aid, at) => {
+  // Haladás rögzítése: value = az eddigi legjobb érték, dates = a megszerzett szintek időpontjai
+  const give = (pid, aid, at, value = 1) => {
     if (!ach.has(pid)) ach.set(pid, new Map());
-    if (!ach.get(pid).has(aid)) ach.get(pid).set(aid, at);
+    const m = ach.get(pid);
+    const r = m.get(aid) || { value: 0, dates: [] };
+    r.value = Math.max(r.value, value);
+    const tiers = achDef(aid).tiers;
+    while (r.dates.length < tiers.length && tiers[r.dates.length].n <= r.value) r.dates.push(at);
+    m.set(aid, r);
   };
   const P = (pid) => {
-    if (!per.has(pid)) per.set(pid, { games: 0, night: 0, weekend: 0, partners: new Set(), opp: new Map(), best: { singles: 0, doubles: 0 } });
+    if (!per.has(pid)) per.set(pid, { games: 0, wins: 0, dgames: 0, night: 0, early: 0, weekend: 0, bagel: 0, nusi: 0, stonks: 0, king: 0, beststreak: 0, partners: new Set(), opp: new Map(), best: { singles: 0, doubles: 0 } });
     return per.get(pid);
   };
   const leaderOf = (kind) => {
@@ -157,20 +171,25 @@ export function computeHonors() {
         const p = P(id);
         p.games++;
         if (ns > p.best[k]) p.best[k] = ns;
-        give(id, 'first', m.at);
-        if (won) give(id, 'firstwin', m.at);
-        if (k === 'doubles') give(id, 'firstdbl', m.at);
-        for (const [n, a] of GAME_STEPS) if (p.games >= n) give(id, a, m.at);
-        for (const [n, a] of STREAK_STEPS) if (ns >= n) give(id, a, m.at);
-        if (m.scoreW === 11 && m.scoreL === 0) give(id, won ? 'bagel' : 'nusi', m.at);
-        if (won && m.delta >= 25) give(id, 'stonks', m.at);
-        if (won && king && m.losers[0] === king) give(id, 'king', m.at);
-        if (h < 5 && ++p.night >= 10) give(id, 'night', m.at);
-        if (h >= 5 && h < 8) give(id, 'early', m.at);
-        if ((wd === 0 || wd === 6) && ++p.weekend >= 10) give(id, 'weekend', m.at);
+        if (won) p.wins++;
+        if (k === 'doubles') p.dgames++;
+        p.beststreak = Math.max(p.beststreak, ns);
+        give(id, 'first', m.at, p.games);
+        give(id, 'firstwin', m.at, p.wins);
+        give(id, 'firstdbl', m.at, p.dgames);
+        give(id, 'games', m.at, p.games);
+        give(id, 'streak', m.at, p.beststreak);
+        if (m.scoreW === 11 && m.scoreL === 0) {
+          if (won) give(id, 'bagel', m.at, ++p.bagel); else give(id, 'nusi', m.at, ++p.nusi);
+        }
+        if (won && m.delta >= 25) give(id, 'stonks', m.at, ++p.stonks);
+        if (won && king && m.losers[0] === king) give(id, 'king', m.at, ++p.king);
+        if (h < 5) give(id, 'night', m.at, ++p.night);
+        if (h >= 5 && h < 8) give(id, 'early', m.at, ++p.early);
+        if (wd === 0 || wd === 6) give(id, 'weekend', m.at, ++p.weekend);
         if (k === 'doubles') {
           for (const mate of ids) if (mate !== id) p.partners.add(mate);
-          if (p.partners.size >= 5) give(id, 'lotyo', m.at);
+          give(id, 'lotyo', m.at, p.partners.size);
         }
         for (const o of (won ? m.losers : m.winners)) if (!p.opp.has(o)) p.opp.set(o, m.at);
         if (closeGame) {
@@ -235,3 +254,6 @@ export function computeHonors() {
 export function isTiebreak(m) { return m.scoreW != null && m.scoreL >= 10; }
 
 export const achOf = (pid) => state.honors?.ach.get(pid) || new Map();
+// Elért szint (0 = még nincs meg)
+export const achLevel = (pid, aid) => achOf(pid).get(aid)?.dates.length || 0;
+export const achLevels = (pid) => ACH.reduce((t, a) => t + achLevel(pid, a.id), 0);
