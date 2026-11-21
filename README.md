@@ -9,7 +9,19 @@ A koli pingpong ELO-ranglistája. Telefonon a böngészőben megnyitva a
 |---|---|
 | `index.html` | Az oldal váza |
 | `style.css` | Kinézet, színek (a tetején a `:root` résznél könnyen átírhatók) |
-| `app.js` | Az app logikája: ranglista, élő meccsfolyam, meccsrögzítés, profil, admin |
+| `js/main.js` | Indulás és élő frissítés (ezt tölti be az index.html) |
+| `js/core.js` | Közös alapok: állapot, segédfüggvények, felugró ablakok, névválasztó |
+| `js/data.js` | Adatok betöltése, alap statisztikák |
+| `js/honors.js` | Különdíjak és achievementek kiszámolása |
+| `js/honors-ui.js` | Különdíjak és achievementek megjelenítése, gratuláció |
+| `js/router.js` | Melyik képernyő jelenjen meg |
+| `js/auth.js` | Belépés, regisztráció |
+| `js/ranking.js` | Ranglisták |
+| `js/matches.js` | Meccsek lista, meccs részletek |
+| `js/newmatch.js` | Új meccs rögzítése |
+| `js/profile.js` | Profil, ELO-grafikon |
+| `js/mystats.js` | Statisztikáim oldal |
+| `js/admin.js` | Admin oldal |
 | `config.js` | A Supabase-projekt címe és nyilvános kulcsa |
 | `supabase/schema.sql` | Az adatbázis: táblák, ELO-számolás, belépés, admin funkciók (a kolis kód helyén itt csak egy helyőrző van, az igazi kódot az admin oldalon lehet állítani) |
 | `.github/workflows/` | Napi ébresztő (hogy az ingyenes adatbázis ne aludjon el) és napi mentés a `backup/` mappába |
