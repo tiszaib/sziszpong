@@ -70,7 +70,7 @@ export function renderProfile(id) {
     }).join('')}</div>` : ''}
 
     <div class="elo-pair ktoggle" role="tablist">
-      <button type="button" class="elo-box ${kind === 'singles' ? 'active' : ''}" data-pk="singles" role="tab"><span>Egyéni</span><b>${p.elo}</b><small>${sPos && p.active ? `${sPos}. hely` : '–'}</small></button>
+      <button type="button" class="elo-box ${kind === 'singles' ? 'active' : ''}" data-pk="singles" role="tab"><span>Egyéni</span><b>${games ? p.elo : '–'}</b><small>${sPos && p.active ? `${sPos}. hely` : games ? '–' : 'még nem játszott'}</small></button>
       <button type="button" class="elo-box dbl ${kind === 'doubles' ? 'active' : ''}" data-pk="doubles" role="tab"><span>Páros</span><b>${dGames ? p.elo_doubles : '–'}</b><small>${dPos ? `${dPos}. hely` : 'még nem játszott'}</small></button>
     </div>
     <div class="kslider" id="kslider">

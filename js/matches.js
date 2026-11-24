@@ -1,6 +1,7 @@
 // SZISZpong · Meccsek lista és meccs részletek
-import { $app, KIND_KEY, clock, dayLabel, esc, kindLabel, kindSwitch, modal, nameOf, namesOf, signed, state, store } from './core.js';
+import { $app, KIND_KEY, clock, closeModal, dayLabel, esc, kindLabel, kindSwitch, modal, nameOf, namesOf, signed, state, store } from './core.js';
 import { bandHTML } from './honors-ui.js';
+import { startRematch } from './newmatch.js';
 
 /* ---------- Meccsek ---------- */
 export const scoreHTML = (m) => (m.scoreW != null ? `${m.scoreW}:${m.scoreL}` : '');
@@ -101,6 +102,9 @@ export function openMatch(id) {
         <div><b>${h.bw}</b><span>${esc(namesOf(m.losers))}</span></div>
       </div>
       ${m.recordedBy && !m.winners.includes(m.recordedBy) && !m.losers.includes(m.recordedBy)
-        ? `<p class="hint" style="text-align:center">rögzítette: ${esc(nameOf(m.recordedBy))}</p>` : ''}`,
+        ? `<p class="hint" style="text-align:center">rögzítette: ${esc(nameOf(m.recordedBy))}</p>` : ''}
+      ${state.me ? '<button type="button" class="btn block rematch-btn" id="md-rm">🔁 Visszavágó</button>' : ''}`,
   });
+  const b = document.getElementById('md-rm');
+  if (b) b.onclick = () => { startRematch(m); closeModal(); location.hash = '#/uj'; };
 }

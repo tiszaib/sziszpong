@@ -2,6 +2,43 @@
 import { $app, activePlayers, busy, byName, eloDelta, enhanceSelect, esc, kindSwitch, nameOf, namesOf, playerById, ratingOf, rpc, signed, state, toast } from './core.js';
 import { loadAll } from './data.js';
 
+/* ---------- Visszavágó ---------- */
+const REMATCH_WINDOW = 3 * 3600 * 1000;   // csak az elmúlt 3 óra meccseit ajánljuk fel
+const ago = (t) => { const m = Math.max(1, Math.round((Date.now() - new Date(t)) / 60000)); return m < 60 ? `${m} perce` : `${Math.round(m / 60)} órája`; };
+
+// A meccs csapatai úgy, hogy (ha benne vagy) te az 1. oldalon legyél
+export function rematchSides(m) {
+  const me = state.me?.id;
+  const mineFirst = m.losers.includes(me) ? [m.losers, m.winners] : [m.winners, m.losers];
+  return mineFirst.map((side) => { const s = [...side]; const i = s.indexOf(me); if (i > 0) { s.splice(i, 1); s.unshift(me); } return s; });
+}
+export function startRematch(m) {
+  state.prefill = { kind: m.kind, sides: rematchSides(m) };
+  state.newKind = m.kind;
+}
+function lastMine() {
+  const me = state.me?.id;
+  const m = state.matches.find((x) => x.winners.includes(me) || x.losers.includes(me));
+  return m && Date.now() - new Date(m.at) < REMATCH_WINDOW ? m : null;
+}
+function rematchBubble(m) {
+  const [mine, other] = rematchSides(m);
+  const won = m.winners.includes(state.me.id);
+  const partner = mine.slice(1);
+  const who = partner.length ? `te & ${esc(namesOf(partner))} vs ${esc(namesOf(other))}` : `${esc(namesOf(other))} ellen`;
+  const sc = m.scoreW != null ? (won ? `${m.scoreW}:${m.scoreL}` : `${m.scoreL}:${m.scoreW}`) : '';
+  return `
+    <span class="rm-wrap">
+      <button type="button" class="rm-btn" id="rm" aria-label="Visszavágó" aria-expanded="false">🔁</button>
+      <button type="button" class="rm-bubble" id="rm-ok" hidden>
+        <b>Visszavágó?</b>
+        <span class="rm-who">${who}</span>
+        <em class="${won ? 'w' : 'l'}">${won ? 'nyertél' : 'kikaptál'} ${sc}</em><em> · ${ago(m.at)}</em>
+        <span class="rm-cta">Koppints a kitöltéshez ›</span>
+      </button>
+    </span>`;
+}
+
 /* ---------- Új meccs ---------- */
 export function renderNewMatch() {
   const kind = state.newKind;
@@ -9,13 +46,17 @@ export function renderNewMatch() {
   const list = activePlayers().sort(byName);
   // f.sides[0] = 1. oldal, f.sides[1] = 2. oldal; egyéniben 1-1, párosban 2-2 hely
   const f = { sides: dbl ? [[state.me.id, ''], ['', '']] : [[state.me.id], ['']], winner: 0, pinPlayer: '' };
+  const pre = state.prefill?.kind === kind ? state.prefill : null;
+  state.prefill = null;
+  if (pre) f.sides = pre.sides.map((x) => [...x]);
+  const last = pre ? null : lastMine();
   const chosen = () => f.sides.flat().filter(Boolean);
 
   const slot = (s, i) => `
     <select class="select" data-side="${s}" data-slot="${i}" aria-label="${s + 1}. oldal, ${i + 1}. játékos"></select>`;
 
   $app.innerHTML = `
-    <h1 class="page-title">Új meccs</h1>
+    <div class="title-row"><h1 class="page-title">Új meccs</h1>${last ? rematchBubble(last) : ''}</div>
     ${kindSwitch(kind, 'nk')}
     <form class="card" id="nm">
       <div class="field"><span>${dbl ? '1. csapat' : 'Játékos 1'}</span><div class="slots">${f.sides[0].map((_, i) => slot(0, i)).join('')}</div></div>
@@ -106,8 +147,31 @@ export function renderNewMatch() {
   };
 
   selects.forEach((sel) => { sel.onchange = () => { f.sides[+sel.dataset.side][+sel.dataset.slot] = sel.value; update(); }; });
-  s1.oninput = update; s2.oninput = update;
+  // két számjegy után (pl. 11) a kurzor magától átugrik a másik, még üres mezőre
+  const jump = (from, to) => () => { update(); if (from.value.length >= 2 && to.value === '') to.focus(); };
+  s1.oninput = jump(s1, s2); s2.oninput = jump(s2, s1);
   update();
+
+  const rm = $app.querySelector('#rm');
+  if (rm) {
+    const bub = $app.querySelector('#rm-ok');
+    const show = (on) => {
+      rm.setAttribute('aria-expanded', on); rm.classList.toggle('on', on);
+      if (on) { bub.hidden = false; requestAnimationFrame(() => bub.classList.add('open')); }
+      else { bub.classList.remove('open'); setTimeout(() => { if (!bub.classList.contains('open')) bub.hidden = true; }, 200); }
+    };
+    const fill = () => { bub.classList.add('go'); setTimeout(() => { startRematch(last); renderNewMatch(); }, 180); };
+    // 1. koppintás: buborék, 2. koppintás (gombra vagy buborékra): kitöltés
+    rm.onclick = (e) => { e.stopPropagation(); if (rm.classList.contains('on')) fill(); else show(true); };
+    bub.onclick = (e) => { e.stopPropagation(); fill(); };
+    const away = (e) => { if (!document.body.contains(rm)) { document.removeEventListener('click', away); return; } if (!e.target.closest('.rm-wrap')) show(false); };
+    document.addEventListener('click', away);
+  }
+  if (pre) {
+    // a kitöltött nevek sorban felvillannak, utána jöhet az eredmény
+    $app.querySelectorAll('#nm .picker').forEach((b, i) => { b.style.animationDelay = `${i * 70}ms`; b.classList.add('filled'); });
+    setTimeout(() => s1.focus({ preventScroll: true }), 450);
+  }
 
   form.onsubmit = (e) => {
     e.preventDefault();

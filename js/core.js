@@ -59,8 +59,8 @@ export const kindLabel = (kind) => (kind === 'doubles' ? 'Páros' : 'Egyéni');
 
 export function ranked(kind) {
   let list = activePlayers();
-  // a páros listán csak az szerepel, aki már játszott párost
-  if (kind === 'doubles') list = list.filter((p) => gamesOf(p.id, 'doubles') > 0);
+  // a listán csak az szerepel, aki már játszott ilyen meccset
+  list = list.filter((p) => gamesOf(p.id, kind) > 0);
   return list.sort((a, b) => ratingOf(b, kind) - ratingOf(a, kind) || byName(a, b));
 }
 
