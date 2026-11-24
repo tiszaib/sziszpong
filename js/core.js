@@ -6,6 +6,7 @@ export const CFG = window.SZISZ_CONFIG || {};
 export const K = 32;                         // ELO K-szám (ugyanaz, mint az adatbázisban)
 export const TOKEN_KEY = 'sziszpong.token';
 export const KIND_KEY = 'sziszpong.kind';
+export const ME_KEY = 'sziszpong.me';      // a belépett játékos adatai, hogy net nélkül is azonnal induljon
 
 export const $app = document.getElementById('app');
 export const $nav = document.getElementById('nav');

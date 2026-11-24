@@ -1,7 +1,7 @@
 // SZISZpong · Élő frissítés és indulás
 import { localLogout } from './auth.js';
-import { $app, $live, $nav, CFG, KIND_KEY, TOKEN_KEY, esc, namesOf, playerById, sb, setSb, state, store, toast } from './core.js';
-import { loadAll } from './data.js';
+import { $app, $live, $nav, CFG, KIND_KEY, ME_KEY, TOKEN_KEY, esc, namesOf, playerById, sb, setSb, state, store, toast } from './core.js';
+import { hydrate, loadAll, readCache, requestFull } from './data.js';
 import { openAch, openAward } from './honors-ui.js';
 import { scoreHTML } from './matches.js';
 import { rerenderIfLive, route } from './router.js';
@@ -33,15 +33,34 @@ export function scheduleReload() {
   }, 400);
 }
 
+let channel = null;
 export function subscribe() {
-  sb.channel('sziszpong-live')
+  if (channel) return;
+  channel = sb.channel('sziszpong-live')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, (p) => {
       if (p.eventType === 'INSERT' && p.new?.id) incoming.add(p.new.id);
+      else requestFull();          // javított vagy törölt meccs: mindent újratöltünk
       scheduleReload();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, scheduleReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, scheduleReload)
     .subscribe((status) => $live.classList.toggle('on', status === 'SUBSCRIBED'));
+}
+function unsubscribe() {
+  if (!channel) return;
+  sb.removeChannel(channel);
+  channel = null;
+  $live.classList.remove('on');
+}
+
+// Ha az app egy percnél tovább a háttérben van, leállítjuk az élő kapcsolatot.
+// Visszatéréskor újracsatlakozunk, és lekérjük, ami közben történt (csak az újakat).
+let pauseTimer = null;
+function onVisibility() {
+  clearTimeout(pauseTimer);
+  if (document.hidden) { pauseTimer = setTimeout(unsubscribe, 60000); return; }
+  subscribe();
+  scheduleReload();
 }
 
 export function showFatal(title, text, retry = true) {
@@ -66,20 +85,24 @@ export async function init() {
   if (window.Chart) { window.Chart.defaults.font.family = 'Outfit, system-ui, sans-serif'; }
   if (store.get(KIND_KEY) === 'doubles') state.matchesKind = 'doubles';
 
-  try {
-    await loadAll();
-  } catch (e) {
-    showFatal('Nem érem el az adatbázist', 'Ellenőrizd a netet, és próbáld újra. (' + (e.message || e) + ')');
-    return;
-  }
-
   state.token = store.get(TOKEN_KEY);
-  if (state.token) {
+  const cached = readCache();
+  let cachedMe = null;
+  try { cachedMe = state.token ? JSON.parse(store.get(ME_KEY)) : null; } catch { /* nincs */ }
+  let sync;
+  if (cached && (!state.token || cachedMe)) {
+    // azonnal rajzolunk a telefonon tárolt adatokból, a friss adat a háttérben jön
+    hydrate(cached);
+    state.me = cachedMe;
+    sync = Promise.all([loadAll(), checkMe()]);
+  } else {
     try {
-      const { data } = await sb.rpc('me', { p_token: state.token });
-      state.me = data || null;
-    } catch { state.me = null; }
-    if (!state.me) { state.token = null; store.del(TOKEN_KEY); }
+      await loadAll();
+    } catch (e) {
+      showFatal('Nem érem el az adatbázist', 'Ellenőrizd a netet, és próbáld újra. (' + (e.message || e) + ')');
+      return;
+    }
+    try { await checkMe(); } catch { state.me = null; }
   }
 
   // különdíj- és achievement-ikonok: koppintásra magyarázat (a sor linkje helyett)
@@ -93,9 +116,23 @@ export async function init() {
 
   subscribe();
   window.addEventListener('hashchange', () => { state.profileKind = 'singles'; route(); window.scrollTo(0, 0); });
-  // ha a telefon visszatér az apphoz, frissítünk (háttérben lemaradhatott valami)
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) scheduleReload(); });
+  document.addEventListener('visibilitychange', onVisibility);
   route();
+  if (sync) {
+    const wasMe = state.me?.id;
+    sync.then(() => { if (state.me?.id !== wasMe) route(); else rerenderIfLive(); })
+      .catch(() => toast('Nincs net, a legutóbb betöltött adatokat látod.'));
+  }
+}
+
+// A tárolt belépés még érvényes-e. Net nélkül (hiba esetén) nem léptetünk ki senkit.
+async function checkMe() {
+  if (!state.token) { state.me = null; return; }
+  const { data, error } = await sb.rpc('me', { p_token: state.token });
+  if (error) { if (!state.me) throw error; return; }
+  state.me = data || null;
+  if (state.me) store.set(ME_KEY, JSON.stringify(state.me));
+  else { state.token = null; store.del(TOKEN_KEY); store.del(ME_KEY); }
 }
 
 init();
