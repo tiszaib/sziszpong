@@ -9,9 +9,9 @@ A koli pingpong ELO-ranglistája. Telefonon a böngészőben megnyitva a
 |---|---|
 | `index.html` | Az oldal váza |
 | `style.css` | Kinézet, színek (a tetején a `:root` résznél könnyen átírhatók) |
-| `js/main.js` | Indulás és élő frissítés (ezt tölti be az index.html) |
+| `js/main.js` | Indulás és élő frissítés (ezt tölti be az index.html); egy perc háttérben töltött idő után szünetelteti az élő kapcsolatot |
 | `js/core.js` | Közös alapok: állapot, segédfüggvények, felugró ablakok, névválasztó |
-| `js/data.js` | Adatok betöltése, alap statisztikák |
+| `js/data.js` | Adatok betöltése, alap statisztikák. A meccseket a telefon eltárolja, és csak az újakat kéri le; eltérésnél, admin javításnál és hetente egyszer mindent újratölt |
 | `js/honors.js` | Különdíjak és achievementek kiszámolása |
 | `js/honors-ui.js` | Különdíjak és achievementek megjelenítése, gratuláció |
 | `js/router.js` | Melyik képernyő jelenjen meg |

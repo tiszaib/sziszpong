@@ -1,5 +1,5 @@
 // SZISZpong · Belépés, regisztráció, kijelentkezés
-import { $app, TOKEN_KEY, activePlayers, busy, byName, enhanceSelect, esc, rpc, state, store, toast } from './core.js';
+import { $app, ME_KEY, TOKEN_KEY, activePlayers, busy, byName, enhanceSelect, esc, rpc, state, store, toast } from './core.js';
 import { loadAll } from './data.js';
 import { route } from './router.js';
 
@@ -78,13 +78,14 @@ export async function afterLogin(token) {
   state.token = token;
   store.set(TOKEN_KEY, token);
   state.me = await rpc('me', { p_token: token });
+  store.set(ME_KEY, JSON.stringify(state.me));
   location.hash = '#/';
   route();
 }
 
 export function localLogout() {
   state.token = null; state.me = null;
-  store.del(TOKEN_KEY);
+  store.del(TOKEN_KEY); store.del(ME_KEY);
   location.hash = '#/';
   route();
 }

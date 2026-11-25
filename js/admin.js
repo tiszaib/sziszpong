@@ -74,7 +74,7 @@ export function renderAdmin() {
     ${state.matches.length > ms.length ? '<button class="btn block" id="more-matches" style="margin-top:10px">Korábbi meccsek</button>' : ''}
   `;
 
-  const refresh = async (msg) => { await loadAll(); renderAdmin(); if (msg) toast(msg, 'ok'); };
+  const refresh = async (msg) => { await loadAll({ full: true }); renderAdmin(); if (msg) toast(msg, 'ok'); };
 
   const nf = $app.querySelector('#news-form');
   nf.onsubmit = (e) => {
