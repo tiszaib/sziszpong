@@ -24,8 +24,8 @@ export const ACH = [
   { id: 'throne_d', group: 'Ranglista', icon: '👯', desc: 'Legyél 1. a páros ranglistán.', unit: '', tiers: T([1, 'Couple goals']) },
   { id: 'king', group: 'Ranglista', icon: '🗡️', desc: 'Egyéniben győzd le az akkori 1. helyezettet.', unit: 'legyőzött első helyezett',
     tiers: T([1, 'Királygyilkos'], [3, 'Királygyilkos'], [10, 'Királygyilkos']) },
-  { id: 'bagel', group: 'Különleges', icon: '🍞', desc: 'Nyerj 11:0-ra.', unit: 'db 11:0',
-    tiers: T([1, 'Mászatott'], [3, 'Nusi néni kedvence'], [5, 'Bro...']) },
+  { id: 'bagel', group: 'Különleges', icon: '🤠', desc: 'Nyerj egyéniben 11:0-ra.', unit: 'db 11:0',
+    tiers: T([1, 'Berceli'], [3, 'Nusi néni kedvence'], [5, 'Bro...']) },
   { id: 'stonks', group: 'Különleges', icon: '📈', desc: 'Szerezz egy meccsen +25 pontot vagy többet.', unit: 'meccs +25 ponttal',
     tiers: T([1, 'STONKS'], [2, 'Hozamkedvelő']) },
   { id: 'night', group: 'Különleges', icon: '🦉', desc: 'Meccsek éjfél és hajnali 5 között.', unit: 'éjszakai meccs',
@@ -37,7 +37,9 @@ export const ACH = [
   { id: 'lotyo', group: 'Különleges', icon: '💞', desc: 'Különböző páros társak.', unit: 'különböző társ',
     tiers: T([3, 'Páros lotyó'], [6, 'Poligám pongozó'], [10, 'Tinder Gold']) },
   { id: 'friend', group: 'Különleges', icon: '🌍', desc: 'Játssz minden aktív játékos ellen (aktív: volt meccse az elmúlt 2 hétben).', unit: '', tiers: T([1, 'Mindenki barátja']) },
-  { id: 'nusi', group: 'Különleges', icon: '🫠', desc: 'Kapj ki 11:0-ra.', unit: 'db 0:11', tiers: T([1, 'Nusi néni']) },
+  { id: 'nusi', group: 'Különleges', icon: '🫠', desc: 'Kapj ki egyéniben 11:0-ra.', unit: 'db 0:11', tiers: T([1, 'Nusi néni']) },
+  { id: 'bagel_d', group: 'Különleges', icon: '🧑‍🔧', desc: 'Nyerjetek párosban 11:0-ra.', unit: '', tiers: T([1, 'Berceli & Kepler']) },
+  { id: 'nusi_d', group: 'Különleges', icon: '👵', desc: 'Kapjatok ki párosban 11:0-ra.', unit: '', tiers: T([1, 'Nusi néni & Hugi néni']) },
 ];
 // Mindenki barátja csak az ezutáni meccsekből jöhet (az első napokban még kevés aktív játékos volt, túl könnyű volt)
 export const FRIEND_FROM = Date.parse('2026-11-21T15:15:00Z');
@@ -182,7 +184,8 @@ export function computeHonors() {
         give(id, 'games', m.at, p.games);
         give(id, 'streak', m.at, p.beststreak);
         if (m.scoreW === 11 && m.scoreL === 0) {
-          if (won) give(id, 'bagel', m.at, ++p.bagel); else give(id, 'nusi', m.at, ++p.nusi);
+          if (k === 'doubles') give(id, won ? 'bagel_d' : 'nusi_d', m.at);
+          else if (won) give(id, 'bagel', m.at, ++p.bagel); else give(id, 'nusi', m.at, ++p.nusi);
         }
         if (won && m.delta >= 25) give(id, 'stonks', m.at, ++p.stonks);
         if (won && king && m.losers[0] === king) give(id, 'king', m.at, ++p.king);
