@@ -25,7 +25,7 @@ export const ACH = [
   { id: 'king', group: 'Ranglista', icon: '🗡️', desc: 'Egyéniben győzd le az akkori 1. helyezettet.', unit: 'legyőzött első helyezett',
     tiers: T([1, 'Királygyilkos'], [3, 'Királygyilkos'], [10, 'Királygyilkos']) },
   { id: 'bagel', group: 'Különleges', icon: '🤠', desc: 'Nyerj egyéniben 11:0-ra.', unit: 'db 11:0',
-    tiers: T([1, 'Berceli'], [3, 'Nusi néni kedvence'], [5, 'Bro...']) },
+    tiers: T([1, 'Berceli'], [3, 'Péter'], [5, 'Bro...']) },
   { id: 'stonks', group: 'Különleges', icon: '📈', desc: 'Szerezz egy meccsen +25 pontot vagy többet.', unit: 'meccs +25 ponttal',
     tiers: T([1, 'STONKS'], [2, 'Hozamkedvelő']) },
   { id: 'night', group: 'Különleges', icon: '🦉', desc: 'Meccsek éjfél és hajnali 5 között.', unit: 'éjszakai meccs',
