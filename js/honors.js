@@ -24,7 +24,7 @@ export const ACH = [
   { id: 'throne_d', group: 'Ranglista', icon: '👯', desc: 'Legyél 1. a páros ranglistán.', unit: '', tiers: T([1, 'Couple goals']) },
   { id: 'king', group: 'Ranglista', icon: '🗡️', desc: 'Egyéniben győzd le az akkori 1. helyezettet.', unit: 'legyőzött első helyezett',
     tiers: T([1, 'Királygyilkos'], [3, 'Királygyilkos'], [10, 'Királygyilkos']) },
-  { id: 'bagel', group: 'Különleges', icon: '🍞', desc: 'Nyerj egyéniben 11:0-ra.', unit: 'db 11:0',
+  { id: 'bagel', group: 'Különleges', icon: '🤠', desc: 'Nyerj egyéniben 11:0-ra.', unit: 'db 11:0',
     tiers: T([1, 'Berceli'], [3, 'Nusi néni kedvence'], [5, 'Bro...']) },
   { id: 'stonks', group: 'Különleges', icon: '📈', desc: 'Szerezz egy meccsen +25 pontot vagy többet.', unit: 'meccs +25 ponttal',
     tiers: T([1, 'STONKS'], [2, 'Hozamkedvelő']) },
@@ -38,7 +38,7 @@ export const ACH = [
     tiers: T([3, 'Páros lotyó'], [6, 'Poligám pongozó'], [10, 'Tinder Gold']) },
   { id: 'friend', group: 'Különleges', icon: '🌍', desc: 'Játssz minden aktív játékos ellen (aktív: volt meccse az elmúlt 2 hétben).', unit: '', tiers: T([1, 'Mindenki barátja']) },
   { id: 'nusi', group: 'Különleges', icon: '🫠', desc: 'Kapj ki egyéniben 11:0-ra.', unit: 'db 0:11', tiers: T([1, 'Nusi néni']) },
-  { id: 'bagel_d', group: 'Különleges', icon: '🥯', desc: 'Nyerjetek párosban 11:0-ra.', unit: '', tiers: T([1, 'Berceli & Kepler']) },
+  { id: 'bagel_d', group: 'Különleges', icon: '🧑‍🔧', desc: 'Nyerjetek párosban 11:0-ra.', unit: '', tiers: T([1, 'Berceli & Kepler']) },
   { id: 'nusi_d', group: 'Különleges', icon: '👵', desc: 'Kapjatok ki párosban 11:0-ra.', unit: '', tiers: T([1, 'Nusi néni & Hugi néni']) },
 ];
 // Mindenki barátja csak az ezutáni meccsekből jöhet (az első napokban még kevés aktív játékos volt, túl könnyű volt)
