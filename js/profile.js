@@ -6,6 +6,7 @@ import { ACH_LEVELS, achLevels, awardOf } from './honors.js';
 import { fold } from './honors-ui.js';
 import { bindMatchCards, matchListByDay } from './matches.js';
 import { duration } from './mystats.js';
+import { bindChallenges, challengeButtonHTML } from './challenge.js';
 
 /* ---------- Profil ---------- */
 export function renderProfile(id) {
@@ -64,6 +65,7 @@ export function renderProfile(id) {
       <div class="profile-name">${esc(p.name)}</div>
       ${p.active ? '' : '<div class="profile-rank">Nem aktív játékos</div>'}
     </div>
+    ${own ? '' : challengeButtonHTML(p.id)}
     ${myAwards.length ? `<div class="award-list">${myAwards.map((key) => {
       const a = awardOf(key);
       return `<button type="button" class="award" data-aw="${key}"><span class="award-ic">${a.icon}</span><span><b>${esc(a.name)}</b>${a.kind ? ` <i>${kindLabel(a.kind).toLowerCase()}</i>` : ''}<small>${esc(state.honors.current[key].text)}</small></span></button>`;
@@ -112,6 +114,7 @@ export function renderProfile(id) {
   fit();
 
   bindMatchCards();
+  if (!own) bindChallenges($app, p.id);
   const lo = $app.querySelector('#logout');
   if (lo) lo.onclick = async () => {
     try { await sb.rpc('logout', { p_token: state.token }); } catch { /* mindegy */ }

@@ -31,6 +31,9 @@ export const state = {
   feedLimit: 40,
   adminMatchLimit: 30,
   fresh: new Set(),     // frissen érkezett meccsek (animációhoz)
+  challenges: [],       // az elmúlt 14 nap kihívásai
+  chEnabled: true,      // false, ha az adatbázisban még nincs kihívás (003_kihivas.sql nem futott le)
+  prefill: null,        // Új meccs előre kitöltve (visszavágó, kihívás)
 };
 
 /* ------------------------------------------------------------------
@@ -45,8 +48,9 @@ export const store = {
   del(k) { try { localStorage.removeItem(k); } catch { /* privát mód */ } },
 };
 
-export function eloDelta(winnerElo, loserElo) {
-  return Math.max(1, Math.round(K * (1 - 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400)))));
+// mult = szorzó: sima meccs 1, kihívás 1,5 (ugyanaz a képlet, mint az adatbázis _elo_delta függvénye)
+export function eloDelta(winnerElo, loserElo, mult = 1) {
+  return Math.max(1, Math.round(K * mult * (1 - 1 / (1 + Math.pow(10, (loserElo - winnerElo) / 400)))));
 }
 
 export const playerById = (id) => state.players.find((p) => p.id === id);

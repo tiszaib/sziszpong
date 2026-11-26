@@ -36,6 +36,8 @@ export const ACH = [
     tiers: T([10, 'Hétvégi bentlakó'], [20, 'Remete'], [40, 'Prime Robi']) },
   { id: 'lotyo', group: 'Különleges', icon: '💞', desc: 'Különböző páros társak.', unit: 'különböző társ',
     tiers: T([3, 'Páros lotyó'], [6, 'Poligám pongozó'], [10, 'Tinder Gold']) },
+  { id: 'duel', group: 'Kihívás', icon: '⚔️', desc: 'Nyerj meg kihívásokat (1,5x pontos meccseket).', unit: 'megnyert kihívás',
+    tiers: T([3, 'Lúdas Matyi'], [6, 'Clint Eastwood'], [12, 'John Wick']) },
   { id: 'friend', group: 'Különleges', icon: '🌍', desc: 'Játssz minden aktív játékos ellen (aktív: volt meccse az elmúlt 2 hétben).', unit: '', tiers: T([1, 'Mindenki barátja']) },
   { id: 'nusi', group: 'Különleges', icon: '🫠', desc: 'Kapj ki egyéniben 11:0-ra.', unit: 'db 0:11', tiers: T([1, 'Nusi néni']) },
   { id: 'bagel_d', group: 'Különleges', icon: '🧑‍🔧', desc: 'Nyerjetek párosban 11:0-ra.', unit: '', tiers: T([1, 'Berceli & Kepler']) },
@@ -58,7 +60,10 @@ export const AWARDS = {
   feketelo: { icon: '🐎', name: 'Fekete ló', rule: 'Az elmúlt 7 nap legnagyobb meglepetés-győzelme: a legnagyobb pontkülönbséggel erősebb ellenfél legyőzése (legalább 50).' },
   nyugalom: { icon: '🧘', name: 'Nyugalom szigete', rule: 'A legjobb győzelmi arány a szoros meccseken, vagyis ahol 10:10 után tiebreak jött. Legalább 5 ilyen meccs kell hozzá.' },
   adomanyozo: { icon: '🎁', name: 'ELO adományozó', rule: 'A legtöbb elvesztett pont az elmúlt 7 napban.' },
+  parbajhos: { icon: '🤺', name: 'Párbajhős', both: true, rule: 'A legtöbb megnyert kihívás az elmúlt 7 napban (legalább 1).' },
 };
+// Ezeknek a díjaknak a gazdaváltása nem jelenik meg sávként a Meccsek listában
+const QUIET_AWARDS = ['adomanyozo'];
 export const awardKeys = (kind) => Object.keys(AWARDS).map((a) => (AWARDS[a].both ? a : `${a}:${kind}`));
 export const awardOf = (key) => { const [a, kind] = key.split(':'); return { ...AWARDS[a], kind: kind || null }; };
 
@@ -87,7 +92,7 @@ export function computeHonors() {
     m.set(aid, r);
   };
   const P = (pid) => {
-    if (!per.has(pid)) per.set(pid, { games: 0, wins: 0, dgames: 0, night: 0, early: 0, weekend: 0, bagel: 0, nusi: 0, stonks: 0, king: 0, beststreak: 0, partners: new Set(), opp: new Map(), best: { singles: 0, doubles: 0 } });
+    if (!per.has(pid)) per.set(pid, { games: 0, wins: 0, dgames: 0, night: 0, early: 0, weekend: 0, bagel: 0, nusi: 0, stonks: 0, duel: 0, king: 0, beststreak: 0, partners: new Set(), opp: new Map(), best: { singles: 0, doubles: 0 } });
     return per.get(pid);
   };
   const leaderOf = (kind) => {
@@ -129,6 +134,10 @@ export function computeHonors() {
     const cnt = new Map();
     for (const x of w7) for (const id of [...x.winners, ...x.losers]) cnt.set(id, (cnt.get(id) || 0) + 1);
     pick('unemployed', cnt, 3, (v) => `${v} meccs az elmúlt 7 napban`);
+
+    const duels = new Map();
+    for (const x of w7) if (x.mult > 1) for (const id of x.winners) duels.set(id, (duels.get(id) || 0) + 1);
+    pick('parbajhos', duels, 1, (v) => `${v} megnyert kihívás az elmúlt 7 napban`);
 
     for (const k of KINDS) {
       pick(`verhetetlen:${k}`, streak[k], 3, (v) => `${v} győzelem zsinórban`);
@@ -188,6 +197,7 @@ export function computeHonors() {
           else if (won) give(id, 'bagel', m.at, ++p.bagel); else give(id, 'nusi', m.at, ++p.nusi);
         }
         if (won && m.delta >= 25) give(id, 'stonks', m.at, ++p.stonks);
+        if (won && m.mult > 1) give(id, 'duel', m.at, ++p.duel);
         if (won && king && m.losers[0] === king) give(id, 'king', m.at, ++p.king);
         if (h < 5) give(id, 'night', m.at, ++p.night);
         if (h >= 5 && h < 8) give(id, 'early', m.at, ++p.early);
@@ -241,6 +251,7 @@ export function computeHonors() {
 
   const byMatch = new Map();
   for (const e of events) {
+    if (QUIET_AWARDS.includes(e.key.split(':')[0])) continue;
     if (!byMatch.has(e.matchId)) byMatch.set(e.matchId, []);
     byMatch.get(e.matchId).push(e);
   }

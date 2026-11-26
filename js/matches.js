@@ -2,6 +2,7 @@
 import { $app, KIND_KEY, clock, closeModal, dayLabel, esc, kindLabel, kindSwitch, modal, nameOf, namesOf, signed, state, store } from './core.js';
 import { bandHTML } from './honors-ui.js';
 import { startRematch } from './newmatch.js';
+import { challengeBandHTML, challengeEvents } from './challenge.js';
 
 /* ---------- Meccsek ---------- */
 export const scoreHTML = (m) => (m.scoreW != null ? `${m.scoreW}:${m.scoreL}` : '');
@@ -10,7 +11,7 @@ export function matchCard(m) {
   const rec = m.recordedBy && !m.winners.includes(m.recordedBy) && !m.losers.includes(m.recordedBy)
     ? `<div class="rec">rögzítette: ${esc(nameOf(m.recordedBy))}</div>` : '';
   return `
-    <button type="button" class="match ${m.kind === 'doubles' ? 'dbl' : ''} ${state.fresh.has(m.id) ? 'fresh' : ''}" data-match="${m.id}">
+    <button type="button" class="match ${m.kind === 'doubles' ? 'dbl' : ''} ${m.mult > 1 ? 'chm' : ''} ${state.fresh.has(m.id) ? 'fresh' : ''}" data-match="${m.id}">
       <div class="side winner">
         <span class="pl">${m.winners.map((id) => esc(nameOf(id))).join('<br>')}</span>
         <span class="delta up">${signed(m.delta)}</span>
@@ -18,6 +19,7 @@ export function matchCard(m) {
       <div class="mid">
         ${m.scoreW != null ? `<div class="score">${scoreHTML(m)}</div>` : '<div class="vs">VS</div>'}
         <span class="when">${clock(m.at)}${m.note ? ' · 💬' : ''}</span>
+        ${m.mult > 1 ? '<span class="x15">⚔️ 1,5x</span>' : ''}
       </div>
       <div class="side right loser">
         <span class="pl">${m.losers.map((id) => esc(nameOf(id))).join('<br>')}</span>
@@ -27,16 +29,27 @@ export function matchCard(m) {
     </button>`;
 }
 
-export function matchListByDay(matches, bands = false) {
+// events: kihívás-események (elfogadva, nem vállalta, lejárt), időrendben a meccsek közé keverve
+export function matchListByDay(matches, bands = false, events = []) {
   let html = ''; let last = '';
-  for (const m of matches) {
-    const label = dayLabel(m.at);
+  const day = (iso) => {
+    const label = dayLabel(iso);
     if (label !== last) { html += `<div class="day-label">${esc(label)}</div>`; last = label; }
+  };
+  const evs = [...events].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  let i = 0;
+  const flush = (until) => {
+    while (i < evs.length && (until == null || Date.parse(evs[i].at) > until)) { day(evs[i].at); html += challengeBandHTML(evs[i++]); }
+  };
+  for (const m of matches) {
+    flush(Date.parse(m.at));
+    day(m.at);
     if (bands) {
       for (const e of state.honors?.byMatch.get(m.id) || []) if (!e.kind || e.kind === m.kind) html += bandHTML(e);
     }
     html += matchCard(m) + '<div style="height:8px"></div>';
   }
+  flush(null);
   return html;
 }
 
@@ -48,11 +61,14 @@ export function renderMatches() {
   const kind = state.matchesKind;
   const all = state.matches.filter((m) => m.kind === kind);
   const list = all.slice(0, state.feedLimit);
+  // kihívás-események csak az egyéni listában; ha van még korábbi meccs, csak a látható időszakéi
+  const from = all.length > list.length && list.length ? Date.parse(list[list.length - 1].at) : -Infinity;
+  const evs = kind === 'singles' ? challengeEvents().filter((e) => Date.parse(e.at) >= from) : [];
   $app.innerHTML = `
     <h1 class="page-title">Meccsek</h1>
-    <p class="page-sub">Élőben frissül. Koppints egy meccsre a részletekért. A színes sávok a különdíjak gazdaváltásai.</p>
+    <p class="page-sub">Élőben frissül. Koppints egy meccsre a részletekért. A színes sávok a különdíjak gazdaváltásai és a kihívások.</p>
     ${kindSwitch(kind, 'mk')}
-    ${list.length ? matchListByDay(list, true) : `<div class="card empty"><span class="big">📡</span>Még nincs ${kind === 'doubles' ? 'páros' : 'egyéni'} meccs.</div>`}
+    ${list.length || evs.length ? matchListByDay(list, true, evs) : `<div class="card empty"><span class="big">📡</span>Még nincs ${kind === 'doubles' ? 'páros' : 'egyéni'} meccs.</div>`}
     ${all.length > list.length ? '<button class="btn block" id="more">Korábbi meccsek</button>' : ''}
   `;
   $app.querySelectorAll('#mk .tab').forEach((t) => {
@@ -88,7 +104,7 @@ export function openMatch(id) {
     </a>`).join('');
   modal({
     body: `
-      <div class="md-head">${kindLabel(m.kind)} meccs · ${esc(dayLabel(m.at))} ${clock(m.at)}</div>
+      <div class="md-head">${m.mult > 1 ? '<span class="md-ch">⚔️ Kihívás · 1,5x</span>' : `${kindLabel(m.kind)} meccs`} · ${esc(dayLabel(m.at))} ${clock(m.at)}</div>
       <div class="md-score">
         <div class="md-side win">${people(m.winners, 'up')}<span class="md-badge">🏆 nyert</span></div>
         <div class="md-mid">${m.scoreW != null ? `<span>${m.scoreW}</span><i>:</i><span>${m.scoreL}</span>` : '<i>VS</i>'}</div>
