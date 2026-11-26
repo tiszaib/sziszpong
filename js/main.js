@@ -5,6 +5,7 @@ import { hydrate, loadAll, readCache, requestFull } from './data.js';
 import { openAch, openAward } from './honors-ui.js';
 import { scoreHTML } from './matches.js';
 import { rerenderIfLive, route } from './router.js';
+import { setChallengeRefresh, tickTimers } from './challenge.js';
 
 /* ------------------------------------------------------------------
    4. Élő frissítés és indulás
@@ -44,6 +45,7 @@ export function subscribe() {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, scheduleReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, scheduleReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, scheduleReload)
     .subscribe((status) => $live.classList.toggle('on', status === 'SUBSCRIBED'));
 }
 function unsubscribe() {
@@ -113,6 +115,10 @@ export async function init() {
     e.preventDefault(); e.stopPropagation();
     if (aw) openAward(aw.dataset.aw); else openAch(ac.dataset.ach, ac.dataset.pid);
   }, true);
+
+  setChallengeRefresh(() => rerenderIfLive());
+  // kihívás-visszaszámlálók percenként; ha valami lejárt, újrarajzolunk
+  setInterval(() => { if (!document.hidden && tickTimers()) rerenderIfLive(); }, 60000);
 
   subscribe();
   window.addEventListener('hashchange', () => { state.profileKind = 'singles'; route(); window.scrollTo(0, 0); });

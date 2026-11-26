@@ -2,6 +2,7 @@
 import { $app, esc, ranked, ratingOf, signed, state } from './core.js';
 import { gamesOf, newsVisible, statsOf } from './data.js';
 import { awardIcons } from './honors-ui.js';
+import { bindChallenges, challengeCardHTML, inLiveChallenge } from './challenge.js';
 
 /* ---------- Ranglisták (egyéni és páros) ---------- */
 export function renderRanking(kind) {
@@ -17,12 +18,13 @@ export function renderRanking(kind) {
     return `
       <a class="rank-row ${me ? 'me' : ''} p${i + 1}" href="#/profil/${p.id}">
         <div class="rank-pos">${i + 1}</div>
-        <div class="rank-name">${esc(p.name)}${me ? '<span class="tag you">te</span>' : ''}<span class="aws">${awardIcons(p.id, kind)}</span></div>
+        <div class="rank-name">${esc(p.name)}${kind === 'singles' && inLiveChallenge(p.id) ? '<span class="ch-flag" title="Élő kihívás">⚔️</span>' : ''}${me ? '<span class="tag you">te</span>' : ''}<span class="aws">${awardIcons(p.id, kind)}</span></div>
         <div class="rank-elo"><strong>${ratingOf(p, kind)}</strong>${d != null ? `<span class="delta ${d > 0 ? 'up' : 'down'}">${signed(d)}</span>` : ''}</div>
       </a>`;
   };
 
   $app.innerHTML = `
+    ${challengeCardHTML()}
     ${newsVisible() ? `<div class="news"><span class="news-label">HÍR ÉS QUOTE</span>${esc(state.news.text)}</div>` : ''}
     <h1 class="page-title">${kind === 'doubles' ? 'Páros ranglista' : 'Egyéni ranglista'}</h1>
     <p class="page-sub">${list.length} játékos · ${nMatches} meccs</p>
@@ -39,4 +41,5 @@ export function renderRanking(kind) {
     ${list.length ? `<div class="rank-list">${list.map(row).join('')}</div>`
       : `<div class="card empty"><span class="big">🏓</span>${kind === 'doubles' ? 'Még nem volt páros meccs. A ＋ gombbal rögzíthetsz egyet.' : 'Még senki nincs a listán.'}</div>`}
   `;
+  bindChallenges($app);
 }

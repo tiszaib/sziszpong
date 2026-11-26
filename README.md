@@ -18,12 +18,14 @@ A koli pingpong ELO-ranglistája. Telefonon a böngészőben megnyitva a
 | `js/auth.js` | Belépés, regisztráció |
 | `js/ranking.js` | Ranglisták |
 | `js/matches.js` | Meccsek lista, meccs részletek |
-| `js/newmatch.js` | Új meccs rögzítése |
+| `js/newmatch.js` | Új meccs rögzítése (visszavágó, kihívás-kapcsoló) |
+| `js/challenge.js` | Kihívások: gomb a profilon, kártya a ranglistán, sávok a Meccsek listában |
 | `js/profile.js` | Profil, ELO-grafikon |
 | `js/mystats.js` | Statisztikáim oldal |
 | `js/admin.js` | Admin oldal |
 | `config.js` | A Supabase-projekt címe és nyilvános kulcsa |
 | `supabase/schema.sql` | Az adatbázis: táblák, ELO-számolás, belépés, admin funkciók (a kolis kód helyén itt csak egy helyőrző van, az igazi kódot az admin oldalon lehet állítani) |
+| `supabase/003_kihivas.sql` | Kihívások az adatbázisban (egyszer kell lefuttatni az SQL Editorban) |
 | `.github/workflows/` | Napi ébresztő (hogy az ingyenes adatbázis ne aludjon el) és napi mentés a `backup/` mappába |
 | `icons/` | Kezdőképernyős ikonok |
 
@@ -31,6 +33,13 @@ A koli pingpong ELO-ranglistája. Telefonon a böngészőben megnyitva a
 
 Mindenki 1000 ponttal indul, a K-szám 32. Csak a győztes számít, az eredmény opcionális.
 Egy győzelem értéke attól függ, mennyivel erősebb vagy gyengébb az ellenfél.
+
+## Kihívás ⚔️
+
+Egyéniben bárki kihívhat bárkit a profilján. A kihívottnak 6 órája van elfogadni,
+utána 24 órájuk van lejátszani. A kihívás-meccs 1,5x pontot ér (K = 48), nyerésnél és vereségnél is.
+Egyszerre mindenkinek csak egy nyitott kihívása lehet. Ha valaki nemet mond, 3 napig nem hívható ki újra
+ugyanattól, és ugyanaz a pár 24 órán belül csak egy kihívást játszhat.
 
 ## Ha a Supabase mégis elaludna
 

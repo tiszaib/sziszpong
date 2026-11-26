@@ -7,10 +7,13 @@ import { computeHonors } from './honors.js';
    A meccseket a telefon eltárolja, és csak az újakat kéri le.
    Ha bármi nem stimmel (törölt/javított meccs), az egészet újratölti.
    ------------------------------------------------------------------ */
-const CACHE_KEY = 'sziszpong.cache.v1';
+const CACHE_KEY = 'sziszpong.cache.v2';   // v2: a meccsekkel a szorzó és a kihívás is jön
 const FULL_EVERY = 7 * 86400000;   // biztonsági teljes frissítés hetente
 const OVERLAP = 5 * 60000;         // az utolsó tárolt meccs előtti 5 percet újra lekérjük
-const MATCH_COLS = 'id,played_at,kind,winner_side,score_1,score_2,note,recorded_by,match_players(player_id,side,elo_before,elo_after)';
+const MATCH_COLS_OLD = 'id,played_at,kind,winner_side,score_1,score_2,note,recorded_by,match_players(player_id,side,elo_before,elo_after)';
+const MATCH_COLS = MATCH_COLS_OLD.replace('recorded_by,', 'recorded_by,multiplier,challenge_id,');
+const CH_COLS = 'id,challenger,challenged,message,status,created_at,answer_by,responded_at,play_by,match_id';
+const CH_DAYS = 14;   // ennyi nap kihívásait töltjük le
 const PLAYER_COLS = 'id,name,elo,elo_doubles,is_admin,active,created_at';
 
 let raw = [];        // nyers meccsek, legújabb elöl
@@ -37,9 +40,11 @@ function mismatch(players, rows) {
 async function fetchMatches(since) {
   let all = [];
   for (let from = 0; ; from += 1000) {
-    let q = sb.from('matches').select(MATCH_COLS);
+    let q = sb.from('matches').select(state.chEnabled ? MATCH_COLS : MATCH_COLS_OLD);
     if (since) q = q.gte('played_at', since);
     const { data, error } = await q.order('played_at', { ascending: false }).range(from, from + 999);
+    // ha az adatbázisban még nincs kihívás (az SQL nem futott le), a régi módon működünk tovább
+    if (error && state.chEnabled && /multiplier|challenge_id/.test(error.message || '')) { state.chEnabled = false; return fetchMatches(since); }
     if (error) throw error;
     all = all.concat(data);
     if (data.length < 1000) break;
@@ -50,13 +55,13 @@ async function fetchMatches(since) {
 export function readCache() {
   try {
     const c = JSON.parse(localStorage.getItem(CACHE_KEY));
-    return c && c.v === 1 && Array.isArray(c.rows) && Array.isArray(c.players) ? c : null;
+    return c && c.v === 2 && Array.isArray(c.rows) && Array.isArray(c.players) ? c : null;
   } catch { return null; }
 }
 
 function writeCache() {
   try {
-    localStorage.setItem(CACHE_KEY, JSON.stringify({ v: 1, fullAt, sig, players: state.players, news: state.news, rows: raw }));
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ v: 2, fullAt, sig, players: state.players, news: state.news, challenges: state.challenges, rows: raw }));
   } catch {
     try { localStorage.removeItem(CACHE_KEY); } catch { /* privát mód */ }
   }
@@ -65,7 +70,7 @@ function writeCache() {
 // Azonnali indulás a tárolt adatokból (a frissítés utána jön a háttérben)
 export function hydrate(c) {
   raw = c.rows; fullAt = c.fullAt || 0; sig = c.sig || '';
-  state.players = c.players; state.news = c.news || null;
+  state.players = c.players; state.news = c.news || null; state.challenges = c.challenges || [];
   build();
 }
 
@@ -76,12 +81,17 @@ function build() {
 }
 
 export async function loadAll({ full = false } = {}) {
-  const [p, n, c] = await Promise.all([
+  const [p, n, c, ch] = await Promise.all([
     sb.from('players').select(PLAYER_COLS),
     sb.from('news').select('text,expires_on').eq('id', 1).maybeSingle(),
     sb.from('matches').select('id', { count: 'exact', head: true }),
+    state.chEnabled
+      ? sb.from('challenges').select(CH_COLS).gte('created_at', new Date(Date.now() - CH_DAYS * 86400000).toISOString())
+      : { data: [] },
   ]);
   if (p.error) throw p.error;
+  if (ch.error) state.chEnabled = false;
+  state.challenges = ch.error ? [] : ch.data || [];
   let doFull = full || forceFull || !fullAt || Date.now() - fullAt > FULL_EVERY;
   if (!doFull) {
     const latest = raw.length ? Date.parse(raw[0].played_at) : 0;
@@ -114,6 +124,7 @@ export function normalizeMatch(m) {
   const byNameId = (a, b) => nameOf(a).localeCompare(nameOf(b), 'hu');
   return {
     id: m.id, at: m.played_at, kind: m.kind, note: m.note, recordedBy: m.recorded_by,
+    mult: Number(m.multiplier ?? 1), challengeId: m.challenge_id || null,
     winnerSide: m.winner_side,
     winners: win.map((x) => x.player_id).sort(byNameId),
     losers: lose.map((x) => x.player_id).sort(byNameId),
