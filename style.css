@@ -592,6 +592,10 @@ button.match:active { transform: scale(.985); }
 .ch-toggle.off .sw { background: var(--card-2); }
 .ch-toggle.off .sw::after { left: 3px; }
 #nm.chm { border-color: rgba(255,122,26,.55); }
+.ch-toggle.tour-toggle { background: linear-gradient(90deg, rgba(229,196,106,.16), rgba(184,134,43,.06)); border-color: rgba(229,196,106,.6); }
+.ch-toggle.tour-toggle b { color: #e5c46a; } .ch-toggle.tour-toggle .sw { background: #c9a24a; }
+.ch-toggle.tour-toggle.off { background: var(--bg-2); border-color: var(--border); } .ch-toggle.tour-toggle.off b { color: var(--muted); } .ch-toggle.tour-toggle.off .sw { background: var(--card-2); }
+#nm.tgm { border-color: rgba(229,196,106,.6); }
 .match.chm { border-color: rgba(255,122,26,.55); box-shadow: 0 0 0 1px rgba(255,122,26,.15) inset; }
 .match .x15 { display: inline-block; margin-top: 3px; font-size: 11px; font-weight: 800; color: var(--ball); background: rgba(255,122,26,.12); padding: 1px 7px; border-radius: 99px; white-space: nowrap; }
 .md-ch { color: var(--ball); font-weight: 800; }
@@ -748,6 +752,14 @@ html.arena #nav-arena { display: grid; }
 .btn.ar-ghost { background: rgba(14,23,48,.55); border: 1px solid rgba(229,196,106,.5); color: #ebd38e; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18px; font-weight: 700; }
 .btn.ar-gold:disabled, .btn.ar-ghost:disabled { opacity: .45; }
 .ar-cta { display: grid; gap: 10px; max-width: 400px; margin: 18px auto 6px; }
+.ar-cta .btn small { display: block; font-size: 13px; font-weight: 500; opacity: .8; }
+.ar-link { display: block; margin: 12px auto 0; background: none; border: 0; color: #c9b27a; font: italic 600 16px 'Cormorant Garamond', Georgia, serif; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.mg-list { display: grid; gap: 10px; margin: 4px 0 6px; }
+.mg-row { padding: 10px 12px; border-radius: 12px; background: var(--bg-2); border: 1px solid var(--border); }
+.mg-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.mg-h small { color: var(--muted); font-size: 12px; }
+.mg-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.mg-btns .chip:disabled { opacity: .45; }
 .ar-last { display: flex; align-items: center; gap: 12px; max-width: 400px; margin: 14px auto 0; padding: 12px 14px; text-align: left; border-radius: 14px;
   background: rgba(14,23,48,.6); border: 1px solid rgba(229,196,106,.3); }
 .ar-last-ic { font-size: 26px; } .ar-last small { display: block; color: var(--muted); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; }

@@ -2,6 +2,7 @@
 import { $app, activePlayers, busy, byName, eloDelta, enhanceSelect, esc, kindSwitch, nameOf, namesOf, playerById, ratingOf, rpc, signed, state, toast } from './core.js';
 import { loadAll } from './data.js';
 import { CH_MULT, liveChallenge } from './challenge.js';
+import { liveTourGame, loadTour } from './tournament.js';
 
 /* ---------- Visszavágó ---------- */
 const REMATCH_WINDOW = 3 * 3600 * 1000;   // csak az elmúlt 3 óra meccseit ajánljuk fel
@@ -46,7 +47,7 @@ export function renderNewMatch() {
   const dbl = kind === 'doubles';
   const list = activePlayers().sort(byName);
   // f.sides[0] = 1. oldal, f.sides[1] = 2. oldal; egyéniben 1-1, párosban 2-2 hely
-  const f = { sides: dbl ? [[state.me.id, ''], ['', '']] : [[state.me.id], ['']], winner: 0, pinPlayer: '', ch: null, chOff: new Set() };
+  const f = { sides: dbl ? [[state.me.id, ''], ['', '']] : [[state.me.id], ['']], winner: 0, pinPlayer: '', ch: null, chOff: new Set(), tg: null, tgOff: false };
   const pre = state.prefill?.kind === kind ? state.prefill : null;
   state.prefill = null;
   if (pre) f.sides = pre.sides.map((x) => [...x]);
@@ -129,22 +130,31 @@ export function renderNewMatch() {
       </button>`).join('');
     form.querySelectorAll('.wp').forEach((btn) => { btn.onclick = () => { f.winner = +btn.dataset.s; update(); }; });
 
-    // kihívás: ha a két játékos között élő kihívás van, a kapcsoló alapból be van kapcsolva
-    const live = !dbl && full ? liveChallenge(f.sides[0][0], f.sides[1][0]) : null;
+    // kupameccs: ha a két játékosnak esedékes Lánchíd Kupa meccse van, a kapcsoló alapból be van kapcsolva
+    const tour = !dbl && full ? liveTourGame(f.sides[0][0], f.sides[1][0]) : null;
+    f.tg = tour && !f.tgOff ? tour : null;
+    // kihívás: ha a két játékos között élő kihívás van, a kapcsoló alapból be van kapcsolva (kupameccs mellett nem)
+    const live = !dbl && full && !f.tg ? liveChallenge(f.sides[0][0], f.sides[1][0]) : null;
     f.ch = live && !f.chOff.has(live.id) ? live : null;
     const box = $app.querySelector('#chbox');
-    box.innerHTML = live ? `
+    const stage = (t) => (t.game.r === -1 ? 'bronzmeccs' : ['a döntő · 2x pont', 'elődöntő', 'negyeddöntő', 'nyolcaddöntő'][Math.log2(t.cup.size) - 1 - t.game.r]);
+    box.innerHTML = tour ? `
+      <button type="button" class="ch-toggle tour-toggle ${f.tg ? '' : 'off'}" id="tgsw" role="switch" aria-checked="${!!f.tg}">
+        <span><b>🏆 Bajnoki meccs</b><small>Lánchíd Kupa · ${f.tg ? stage(tour) : 'kikapcsolva, sima meccs'}</small></span><span class="sw"></span>
+      </button>` : live ? `
       <button type="button" class="ch-toggle ${f.ch ? '' : 'off'}" id="chsw" role="switch" aria-checked="${!!f.ch}">
         <span><b>⚔️ Kihívás meccs</b><small>${esc(nameOf(live.challenger))} kihívása · ${f.ch ? '1,5x pont' : 'kikapcsolva, sima meccs'}</small></span><span class="sw"></span>
       </button>` : '';
-    if (live) box.querySelector('#chsw').onclick = () => { if (f.chOff.has(live.id)) f.chOff.delete(live.id); else f.chOff.add(live.id); update(); };
+    if (tour) box.querySelector('#tgsw').onclick = () => { f.tgOff = !f.tgOff; update(); };
+    else if (live) box.querySelector('#chsw').onclick = () => { if (f.chOff.has(live.id)) f.chOff.delete(live.id); else f.chOff.add(live.id); update(); };
     form.classList.toggle('chm', !!f.ch);
+    form.classList.toggle('tgm', !!f.tg);
 
     const pv = form.querySelector('#preview');
     if (full && f.winner) {
       const W = f.sides[f.winner - 1]; const L = f.sides[2 - f.winner];
       const avg = (ids) => ids.reduce((t, id) => t + ratingOf(playerById(id), kind), 0) / ids.length;
-      const d = eloDelta(Math.round(avg(W)), Math.round(avg(L)), f.ch ? CH_MULT : 1);
+      const d = eloDelta(Math.round(avg(W)), Math.round(avg(L)), f.ch ? CH_MULT : f.tg?.final ? 2 : 1);
       pv.innerHTML = `<div class="preview"><span>${esc(namesOf(W))} <span class="delta up">${signed(d)}</span></span><span>${esc(namesOf(L))} <span class="delta down">${signed(-d)}</span></span></div>`;
     } else pv.innerHTML = '';
 
@@ -204,12 +214,14 @@ export function renderNewMatch() {
     busy(form.querySelector('#save'), async () => {
       const r = dbl
         ? await rpc('record_doubles', { ...common, p_w1: W[0], p_w2: W[1], p_l1: L[0], p_l2: L[1] })
-        : await rpc('record_match', { ...common, p_winner: W[0], p_loser: L[0], ...(f.ch ? { p_challenge: f.ch.id } : {}) });
+        : await rpc('record_match', { ...common, p_winner: W[0], p_loser: L[0], ...(f.ch ? { p_challenge: f.ch.id } : {}), ...(f.tg ? { p_tournament: f.tg.cup.id } : {}) });
       state.fresh.add(r.match_id);
-      await loadAll();
-      toast(`Rögzítve! ${namesOf(W)} ${signed(r.delta)} ${f.ch ? '⚔️' : '🏓'}`, 'ok');
+      await Promise.all([loadAll(), r.tournament ? loadTour() : null]);
+      toast(`Rögzítve! ${namesOf(W)} ${signed(r.delta)} ${r.tournament ? '🏆' : f.ch ? '⚔️' : '🏓'}`, 'ok');
       state.matchesKind = kind;
-      location.hash = '#/meccsek';
+      // kupameccs után vissza a hídra, ahol a győztes útja felizzik
+      if (r.tournament) { state.tourAfter = { ...r.tournament, w: W[0] }; location.hash = '#/bajnoksag'; }
+      else location.hash = '#/meccsek';
     });
   };
 }

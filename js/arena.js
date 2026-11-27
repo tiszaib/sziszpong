@@ -1,6 +1,9 @@
 // SZISZpong · Bajnokság: külön "festmény" világ (Schoefft József Széchenyi-portréja alapján)
-import { $app } from './core.js';
-import { arenaView, bindArena } from './arena-views.js';
+import { $app, state } from './core.js';
+
+// A Bajnokság fül nehezebb része (nézetek, ágrajz, Hírlap) csak az első megnyitáskor töltődik le
+let views = null;
+const loadViews = () => (views ||= import('./arena-views.js'));
 
 /* A "nincs bajnokság" kép: Széchenyi kivágva (átlátszó háttérrel), egy nagy képkeretnek támaszkodva.
    Új kép esetén: cseréld le a fájlt, és a sign értékeit (százalékban, a képhez mérten) igazítsd a keret belsejéhez.
@@ -87,8 +90,19 @@ export function arenaSwitch(on, render, { instant = false } = {}) {
   setTimeout(() => { veil.remove(); busy = false; }, hide + 600);
 }
 
-export function renderArena(sub) {
-  $app.innerHTML = arenaView(sub);
-  bindArena(sub);
+export async function renderArena(sub) {
   document.querySelectorAll('#nav-arena [data-ar]').forEach((a) => a.classList.toggle('active', a.dataset.ar === (sub || 'kupa')));
+  if (!views) $app.innerHTML = '<div class="loading"><span class="spinner"></span></div>';
+  const v = await loadViews();
+  if (state.view !== 'arena' || (location.hash.split('/')[2] || undefined) !== sub) return;   // közben máshová léptünk
+  $app.innerHTML = v.arenaView(sub);
+  v.bindArena(sub);
 }
+
+// élő frissítés a kupáról: csak akkor kell a nézet, ha a Bajnokság fül nyitva van
+export function arenaLive(prev) {
+  if (state.view === 'arena' && views) loadViews().then((v) => v.arenaLive(prev));
+}
+
+// a Bajnokság menü középső gombja (kiírás / jelentkezés / rögzítés)
+document.getElementById('ar-plus')?.addEventListener('click', () => loadViews().then((v) => v.plusAction()));

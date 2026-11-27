@@ -1,21 +1,35 @@
-// SZISZpong · Bajnokság fül nézetei: üres állapot, kiáltvány, sorsolás, Lánchíd-ágrajz, bajnok, Arcképcsarnok, Kupák, Szabályok
-// ELŐNÉZET: a kupa adatai most csak a böngészőben élnek (bemutató), az adatbázis a következő lépésben jön.
-import { $app, esc, modal, nameOf, playerById, state, toast } from './core.js';
-import { EMPTY_ART, artFor, strike } from './arena.js';
+// SZISZpong · Bajnokság fül nézetei: üres állapot, kiáltvány, sorsolás, Lánchíd-ágrajz, bajnok, Arcképcsarnok, Hírlap, Szabályok
+// A kupa adatai az adatbázisból jönnek (004_bajnoksag.sql); a szabályokat (sorsolás, továbbjutás) is az adatbázis dönti el.
+// Ez a fájl csak a Bajnokság fül megnyitásakor töltődik le.
+import { $app, $modal, busy, esc, modal, nameOf, playerById, rpc, state, toast } from './core.js';
+import { EMPTY_ART, artFor } from './arena.js';
+import { loadArchive, loadTour, shownCup } from './tournament.js';
 
-/* ---------------- bemutató adatok ---------------- */
 const DAY = 86400000;
+// T: az éppen mutatott kupa a nézetek számára (a rajzolók ezt olvassák)
 export const T = {
+  id: null,
   status: 'none',      // none | reg | running | done
-  size: 8, bronze: true, msg: '', by: null, deadline: 0,
+  size: 8, bronze: true, msg: '', by: null, deadline: 0, hours: 24,
   entries: [],         // játékos id-k a jelentkezés sorrendjében
-  games: [],           // { r, i, a, b, w, sa, sb }  r: forduló (0 = első), i: sorszám; bronz: r = -1
+  games: [],           // { r, i, a, b, w, sa, sb, wo, ready }  r: forduló (0 = első), i: sorszám; bronz: r = -1
   champion: null, finishedAt: 0,
 };
-const HALL = [   // korábbi bajnokok (bemutató)
-  { name: 'Peti', at: '2026-10-18', size: 8 },
-  { name: 'Kata', at: '2026-11-08', size: 4 },
-];
+// az adatbázis szerinti kupa átírása a T-be
+function syncT() {
+  const c = shownCup();
+  Object.assign(T, c ? {
+    id: c.id, status: c.status, size: c.size, bronze: c.bronze, msg: c.msg || '', by: c.by, deadline: Date.parse(c.until), hours: c.hours || 24,
+    entries: c.entries.map((e) => e.p), games: c.games.map((g) => ({ ...g })), champion: c.champion, finishedAt: c.finished ? Date.parse(c.finished) : 0,
+  } : { id: null, status: 'none', entries: [], games: [], champion: null, finishedAt: 0 });
+}
+// a lezárt kupák egységes alakban (Hírlap, Csarnok, Kupavadászok)
+const cupOf = (c) => ({
+  id: c.id, at: c.finished, size: c.size, bronze: c.bronze, by: c.by, entries: c.entries.map((e) => e.p),
+  elo: Object.fromEntries(c.entries.map((e) => [e.p, e.elo])), games: c.games, champion: c.champion,
+});
+const archive = () => state.tour.archive.map(cupOf);
+const HALL = () => archive().map((c) => ({ id: c.id, name: nameOf(c.champion), at: c.at, size: c.size }));
 
 const ROMAN = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
 const roman = (n) => ROMAN.reduce((s, [v, r]) => { while (n >= v) { s += r; n -= v; } return s; }, '');
@@ -24,46 +38,17 @@ const rounds = () => Math.log2(T.size);
 const roundName = (r) => { const k = rounds() - 1 - r; return k === 0 ? 'Döntő' : k === 1 ? 'Elődöntő' : k === 2 ? 'Negyeddöntő' : `${roman(r + 1)}. forduló`; };
 const nm = (id, g) => (id ? esc(nameOf(id)) : g && g.r === 0 ? '<i>erőnyerő</i>' : '<i>?</i>');
 const me = () => state.me?.id;
+const isBoss = () => !!state.me && (state.me.is_admin || T.by === me());
 const gameAt = (r, i) => T.games.find((g) => g.r === r && g.i === i);
-const nextGame = () => T.games.filter((g) => g.a && g.b && !g.w).sort((x, y) => (x.r === -1) - (y.r === -1) || x.r - y.r || x.i - y.i)[0];
+const order = (x, y) => (x.r === -1) - (y.r === -1) || x.r - y.r || x.i - y.i;
+// a következő meccs: ha nekem van esedékes meccsem, az; különben a legkorábbi
+const nextGame = () => {
+  const open = T.games.filter((g) => g.a && g.b && !g.w).sort(order);
+  return open.find((g) => g.a === me() || g.b === me()) || open[0];
+};
 const isFinal = (g) => g.r === rounds() - 1;
 const left = (d) => { const ms = Math.max(0, d - Date.now()); const h = Math.floor(ms / 3600000); return h >= 24 ? `${Math.floor(h / 24)} nap ${h % 24} ó` : `${h} ó ${Math.floor((ms % 3600000) / 60000)} p`; };
-
-// sorsolás: a két legerősebb az ágrajz két végére, a többi véletlen.
-// Ha nem telt be, a legerősebbek kapnak erőnyerőt, és egy párharcban sosem lesz két üres hely.
-function draw() {
-  const n = T.entries.length;
-  T.size = Math.max(4, 2 ** Math.ceil(Math.log2(n)));   // ha kevesen jöttek, kisebb ágrajz
-  const byElo = [...T.entries].sort((a, b) => (playerById(b)?.elo || 0) - (playerById(a)?.elo || 0));
-  const g0 = T.size / 2; const byes = T.size - n;
-  const order = Array.from({ length: g0 }, (_, k) => (k % 2 ? g0 - 1 - (k >> 1) : k >> 1));   // felváltva a két végről befelé
-  const outer = (k) => (k % 2 ? 2 * order[k] + 1 : 2 * order[k]);
-  const slots = Array(T.size).fill(undefined);
-  const seeded = Math.max(2, byes);
-  for (let k = 0; k < seeded && k < n; k++) { slots[outer(k)] = byElo[k]; if (k < byes) slots[outer(k) ^ 1] = null; }
-  const rest = byElo.slice(seeded).sort(() => Math.random() - 0.5);
-  for (let i = 0, q = 0; i < T.size; i++) if (slots[i] === undefined) slots[i] = rest[q++] ?? null;
-  T.games = [];
-  for (let r = 0; r < rounds(); r++) for (let i = 0; i < T.size >> (r + 1); i++) T.games.push({ r, i, a: r ? null : slots[2 * i], b: r ? null : slots[2 * i + 1], w: null });
-  if (T.bronze && T.size >= 4) T.games.push({ r: -1, i: 0, a: null, b: null, w: null });
-  T.games.filter((g) => g.r === 0 && (!g.a || !g.b)).forEach((g) => advance(g, g.a || g.b));
-  T.status = 'running';
-}
-function advance(g, w, sa = null, sb = null) {
-  g.w = w; g.sa = sa; g.sb = sb;
-  if (g.r === -1) return;
-  if (isFinal(g)) { T.champion = w; T.status = 'done'; T.finishedAt = Date.now(); return; }
-  const nx = gameAt(g.r + 1, g.i >> 1);
-  if (g.i % 2 === 0) nx.a = w; else nx.b = w;
-  // az elődöntők vesztesei a bronzmeccsre
-  if (g.r === rounds() - 2 && T.bronze) { const br = gameAt(-1, 0); const l = w === g.a ? g.b : g.a; if (g.i % 2 === 0) br.a = l; else br.b = l; }
-}
-// meccs rögzítése a bemutatóban (a döntő 2x)
-function record(g, sa, sb) {
-  const w = sa > sb ? g.a : g.b;
-  advance(g, w, sa, sb);
-  return w;
-}
+const overdue = (g) => g.ready && Date.now() - Date.parse(g.ready) > T.hours * 3600000;
 
 /* ---------------- közös elemek ---------------- */
 const head = (title, sub) => `
@@ -89,6 +74,7 @@ function szechenyi(text, key = 'none', cls = '') {
 
 /* ---------------- nézetek ---------------- */
 export function arenaView(sub) {
+  syncT();
   if (sub === 'csarnok') return hallView();
   if (sub === 'hirlap') return heraldView();
   if (sub === 'szabalyok') return rulesView();
@@ -99,7 +85,7 @@ export function arenaView(sub) {
 }
 
 function emptyView() {
-  const last = HALL[HALL.length - 1];
+  const l = state.tour.last; const last = l && { name: nameOf(l.champion), at: l.at };
   return `
     <section class="ar">
       ${head('Bajnokság', 'A KGY-terem nagy tornái')}
@@ -135,7 +121,8 @@ function procView() {
       <div class="ar-cta">
         ${mine ? '<button type="button" class="btn block ar-ghost" data-ar-leave>Visszalépek</button>'
           : `<button type="button" class="btn block ar-gold" data-ar-join ${full ? 'disabled' : ''}>✍️ Jelentkezem</button>`}
-        ${T.by === me() ? `<button type="button" class="btn block ar-ghost" data-ar-draw ${T.entries.length < 4 ? 'disabled' : ''}>🎭 Sorsolás most</button>` : ''}
+        ${isBoss() ? `<button type="button" class="btn block ar-ghost" data-ar-draw ${T.entries.length < 4 ? 'disabled' : ''}>🎭 Sorsolás most${T.entries.length < 4 ? '<small>legalább 4 nevező kell</small>' : ''}</button>
+          <button type="button" class="ar-link" data-ar-cancel>A kiírás visszavonása</button>` : ''}
       </div>
       ${orn}
     </section>`;
@@ -233,7 +220,7 @@ function tower(cx, top, deck, big) {
 }
 function bnode(geo, g, cls = '') {
   const p = geo.pos[`${g.r}:${g.i}`]; const nx = nextGame();
-  const side = (id, sc) => `<div class="bn-p ${!id && g.r === 0 ? 'bye' : g.w ? (g.w === id ? 'mw' : 'ml') : ''}"><span ${id ? `data-pid="${id}"` : ''}>${nm(id, g)}</span>${sc != null ? `<b>${sc}</b>` : ''}</div>`;
+  const side = (id, sc) => `<div class="bn-p ${!id && g.r === 0 ? 'bye' : g.w ? (g.w === id ? 'mw' : 'ml') : ''}"><span ${id ? `data-pid="${id}"` : ''}>${nm(id, g)}</span>${sc != null ? `<b>${sc}</b>` : g.wo && g.a && g.b && g.w === id ? '<b title="továbbléptetve">✓</b>' : ''}</div>`;
   return `<div class="bn ${cls} ${nx === g ? 'next' : ''} ${g.w ? 'done' : ''}" data-g="${g.r}:${g.i}" style="left:${f1(p.x)}px;top:${f1(p.y - p.h / 2)}px;width:${p.w}px;height:${p.h}px">${side(g.a, g.sa)}${side(g.b, g.sb)}</div>`;
 }
 function bridgeHTML() {
@@ -296,6 +283,7 @@ function bracketView() {
         <div class="nx-stake">${stakeOf(nx)}</div>
         <button type="button" class="btn ar-gold sm" data-ar-rec="${nx.r}:${nx.i}">Eredmény rögzítése</button></div>` : ''}
       ${bridgeHTML()}
+      ${isBoss() && T.status === 'running' ? `<button type="button" class="ar-link" data-ar-manage>${state.me.is_admin ? '🛠 Kupa kezelése (admin)' : '🛠 Kupa kezelése (kiíró)'}</button>` : ''}
       ${szechenyi('', 'running', 'small play')}
       ${orn}
     </section>`;
@@ -317,7 +305,7 @@ function championView() {
     <section class="ar champ">
       ${head('Lánchíd Kupa', 'Bajnokunk')}
       <div class="champ-name">${esc(nameOf(c))}</div>
-      <div class="champ-sub">A döntőben: ${esc(nameOf(fin.a))} – ${esc(nameOf(fin.b))} ${fin.sa}:${fin.sb}</div>
+      <div class="champ-sub">A döntőben: ${esc(nameOf(c))} – ${esc(nameOf(c === fin.a ? fin.b : fin.a))} ${fin.wo ? '(továbbléptetés)' : c === fin.a ? `${fin.sa}:${fin.sb}` : `${fin.sb}:${fin.sa}`}</div>
       ${szechenyi(`Bajnok:<br>${esc(nameOf(c))}`, 'done')}
       <div class="ar-cta">
         <a class="btn block ar-ghost" href="#/bajnoksag/csarnok">🖼 Arcképcsarnok</a>
@@ -329,7 +317,7 @@ function championView() {
 
 /* ---------------- Arcképcsarnok ---------------- */
 const initials = (n) => n.split(/\s+/).map((x) => x[0]).join('').slice(0, 2).toUpperCase();
-const hallKey = (h) => `${h.name}|${h.at}`;
+const hallKey = (h) => h.id;
 const SEEN = 'sziszpong.hallSeen';
 const seenList = () => { try { return JSON.parse(localStorage.getItem(SEEN) || '[]'); } catch { return []; } };
 const markSeen = (h) => { try { localStorage.setItem(SEEN, JSON.stringify([...seenList(), hallKey(h)].slice(-30))); } catch { /* nem baj */ } };
@@ -341,7 +329,7 @@ const portraitHTML = (h, k = 0, cls = '') => `
     <figcaption class="plate"><b class="bt">${esc(h.name)}</b><small class="bt">${romanDate(h.at)} · ${h.size} fő</small></figcaption>
   </figure>`;
 function hallView() {
-  const list = [...HALL].reverse();
+  const list = HALL().reverse();
   return `
     <section class="ar">
       ${head('Arcképcsarnok', 'A Lánchíd Kupa bajnokai')}
@@ -355,7 +343,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 // a név és a dátum tüzesen beleég a réztáblába, majd a kép és a tábla leszáll a helyére
 async function burnIn(fig) {
-  const h = [...HALL].reverse()[0]; markSeen(h);
+  const h = HALL().reverse()[0]; markSeen(h);
   if (reduced()) { fig.classList.remove('pending'); return; }
   window.scrollTo(0, 0); await sleep(60);
   const tr = fig.getBoundingClientRect(); const k = Math.min(1.55, (window.innerWidth - 60) / tr.width);
@@ -424,41 +412,10 @@ function cupTable() {
 }
 
 /* ---------------- Hírlap: a lezárt kupák archívuma, mindegyik egy különkiadás ---------------- */
-const ARCHIVE = [];   // { id, at, size, bronze, by, entries, games, champion }
-let seeded = false;
-// bemutató: a két régi kupát (Peti, Kata) végigjátsszuk, hogy legyen mit lapozni
-function archive() {
-  if (!seeded && state.players?.length) {
-    seeded = true;
-    for (const h of HALL.slice(0, 2)) {
-      const champ = state.players.find((p) => p.name === h.name)?.id; if (!champ) continue;
-      const others = state.players.filter((p) => p.active && p.id !== champ).map((p) => p.id).sort(() => Math.random() - 0.5);
-      ARCHIVE.push(simulate([champ, ...others.slice(0, h.size - 1)], h.size, champ, h.at));
-    }
-  }
-  return ARCHIVE;
-}
-function snapshot(at) {
-  return JSON.parse(JSON.stringify({ id: `k${ARCHIVE.length + 1}`, at, size: T.size, bronze: T.bronze, by: T.by, entries: T.entries, games: T.games, champion: T.champion }));
-}
-function simulate(entries, size, champ, at) {
-  const saved = JSON.parse(JSON.stringify(T));
-  Object.assign(T, { status: 'reg', size, bronze: true, by: entries[1], entries: [...entries], games: [], champion: null });
-  draw();
-  let g; let guard = 0;
-  while ((g = T.games.filter((x) => x.a && x.b && !x.w).sort((x, y) => (x.r === -1) - (y.r === -1) || x.r - y.r)[0]) && guard++ < 40) {
-    const aw = g.a === champ ? true : g.b === champ ? false : Math.random() < 0.5;
-    const lose = 3 + Math.floor(Math.random() * 7); const close = Math.random() < 0.25;
-    record(g, aw ? (close ? 12 : 11) : (close ? 10 : lose), aw ? (close ? 10 : lose) : (close ? 12 : 11));
-  }
-  const snap = snapshot(at);
-  Object.keys(T).forEach((k) => delete T[k]); Object.assign(T, saved);
-  return snap;
-}
 // egy lezárt kupán futtat valamit úgy, mintha az lenne az aktuális (az ágrajz-rajzoló a T-t olvassa)
 function withCup(c, fn) {
   const saved = { ...T };
-  Object.assign(T, { size: c.size, bronze: c.bronze, games: c.games, champion: c.champion, status: 'done' });
+  Object.assign(T, { size: c.size, bronze: c.bronze, games: c.games, champion: c.champion, status: 'done', entries: c.entries });
   try { return fn(); } finally { Object.keys(T).forEach((k) => delete T[k]); Object.assign(T, saved); }
 }
 /* ---------------- Hírmotor: helyzetek felismerése + sok sablon ---------------- */
@@ -490,6 +447,7 @@ const TPL = {
     close: ['A döntőben {A} – {B} {S}, hosszabbításban dőlt el. {L} ezüstérmes.', 'Drámai döntő: {A} – {B} {S}. {L} karnyújtásnyira volt.', 'Az utolsó labdáig izgalmas volt: {A} – {B} {S}.'],
     blowout: ['Egyoldalú döntő: {A} – {B} {S}. {L} ezüstérmes.', 'Nem volt kérdés: {A} – {B} {S} a döntőben.', 'Fölényes fináléban {A} – {B} {S}.'],
     normal: ['A döntőben {A} – {B} {S}. {L} ezüstérmes.', 'A finálé: {A} – {B} {S}. Ezüstérem: {L}.', '{A} – {B} {S} a döntőben. Gratulálunk mindkettőjüknek!'],
+    walkover: ['A döntő elmaradt, {W} játék nélkül emelhette a magasba a kupát. {L} ezüstérmes.', 'Nem volt döntő: {W} továbbléptetéssel lett bajnok. Ezüstérem: {L}.'],
   },
   items: {
     upset: [
@@ -579,13 +537,14 @@ function newsOf(c) {
   const R = Math.log2(c.size); const fin = c.games.find((g) => g.r === R - 1); const W = c.champion; const L = fin.w === fin.a ? fin.b : fin.a;
   const nm = nameOf; const sc = (g) => `${g.sa}:${g.sb}`;
   const scW = (g) => (g.w === g.a ? `${g.sa}:${g.sb}` : `${g.sb}:${g.sa}`);   // a győztes pontja elöl
-  const played = c.games.filter((g) => g.a && g.b && g.w);
-  const elo = (id) => playerById(id)?.elo || 1000;
-  const prev = ARCHIVE.slice(0, ARCHIVE.indexOf(c));
+  const played = c.games.filter((g) => g.a && g.b && g.w && !g.wo);   // továbbléptetés nem számít meccsnek
+  const elo = (id) => c.elo?.[id] ?? playerById(id)?.elo ?? 1000;   // a sorsoláskori ELO
+  const all = archive(); const prev = all.slice(0, all.findIndex((x) => x.id === c.id));
   const prevChamp = prev[prev.length - 1]?.champion;
   const titles = prev.filter((x) => x.champion === W).length + 1;
   const loserOf = (g) => (g.w === g.a ? g.b : g.a);
   const lostAt = (id) => played.find((g) => loserOf(g) === id && g.r >= 0);
+  const outAt = (id) => c.games.find((g) => g.a && g.b && g.w && loserOf(g) === id && g.r >= 0);   // továbbléptetéssel is
   // főcím
   const byElo = [...c.entries].sort((a, b) => elo(b) - elo(a));
   const seedPos = byElo.indexOf(W);
@@ -594,7 +553,7 @@ function newsOf(c) {
   else if (titles === 1 && prev.length && pick([0, 1])) hk = 'first'; else if (seedPos === 0 && pick([0, 1])) hk = 'favourite'; else if (W === c.by && pick([0, 1])) hk = 'organizer';
   const head = fill(pick(TPL.head[hk]), { W: nm(W), N: titles });
   const fd = Math.abs(fin.sa - fin.sb);
-  const deck = fill(pick(TPL.deck[Math.max(fin.sa, fin.sb) > 11 ? 'close' : fd >= 7 ? 'blowout' : 'normal']), { A: nm(fin.a), B: nm(fin.b), S: sc(fin), L: nm(L) });
+  const deck = fill(pick(TPL.deck[fin.wo ? 'walkover' : Math.max(fin.sa, fin.sb) > 11 ? 'close' : fd >= 7 ? 'blowout' : 'normal']), { A: nm(W), B: nm(L), S: scW(fin), L: nm(L), W: nm(W) });   // a győztes elöl
   // hírek: minden felismert helyzet egy jelölt, fontossági sorrendben; a végén legfeljebb 5 kerül be
   const cand = [];
   const used = new Set();
@@ -618,10 +577,10 @@ function newsOf(c) {
   const wg = played.filter((g) => g.w === W && g.r >= 0); const conceded = wg.reduce((s, g) => s + (g.a === W ? g.sb : g.sa), 0);
   if (wg.length >= 2 && conceded / wg.length <= 6) add('dominant', 75, { W: nm(W), P: conceded, A: (conceded / wg.length).toFixed(1).replace('.', ',') });
   const newbies = c.entries.filter((id) => !prev.some((x) => x.entries.includes(id)) && id !== W && id !== L);
-  const deb = newbies.map((id) => { const g = lostAt(id); return { id, r: g ? g.r : R }; }).filter((x) => prev.length && x.r >= R - 2).sort((a, b) => b.r - a.r)[0];
+  const deb = newbies.map((id) => { const g = outAt(id); return { id, r: g ? g.r : R }; }).filter((x) => prev.length && x.r >= R - 2).sort((a, b) => b.r - a.r)[0];
   if (deb) add('debut', 65, { N: nm(deb.id), R: stageTo(deb.r, R) });
   if (c.by && c.by === W) { const [h, t] = pick(TPL.items.organizerWin.slice(hk === 'organizer' ? 1 : 0)); cand.push({ prio: 86, h: fill(h, { W: nm(W) }), t: fill(t, { W: nm(W) }) }); }
-  if (c.by && c.by !== W && c.by !== L) { const g = lostAt(c.by); if (g) add(g.r <= R - 3 ? 'organizerOut' : 'organizer', 40, { N: nm(c.by), R: g.r <= R - 3 ? stageIn(g.r, R) : stageTo(g.r, R) }); }
+  if (c.by && c.by !== W && c.by !== L) { const g = outAt(c.by); if (g) add(g.r <= R - 3 ? 'organizerOut' : 'organizer', 40, { N: nm(c.by), R: g.r <= R - 3 ? stageIn(g.r, R) : stageTo(g.r, R) }); }
   const br = c.games.find((g) => g.r === -1 && g.w);
   if (br) add('bronze', 72, { W: nm(br.w), L: nm(loserOf(br)), S: scW(br) });
   const pts = (g) => g.sa + g.sb; const mar = [...played].sort((x, y) => pts(y) - pts(x))[0];
@@ -631,7 +590,7 @@ function newsOf(c) {
   items.push({ h: nh, t: fill(nt, { N: c.entries.length, M: played.length, P: played.reduce((s, g) => s + pts(g), 0), O: nm(c.by) }) });
   return { head, deck, items, played: played.length };
 }
-const editionNo = (c) => ARCHIVE.indexOf(c) + 1;
+const editionNo = (c) => archive().findIndex((x) => x.id === c.id) + 1;
 let openCup = null; let showBridge = false;
 function heraldView() {
   const list = [...archive()].reverse();
@@ -682,11 +641,12 @@ function rulesView() {
       <div class="proc rules">
         <ol>
           <li><b>Bárki kiírhat</b> egy Lánchíd Kupát: 4, 8 vagy 16 fővel. Egyszerre egy kupa futhat.</li>
-          <li>A jelentkezés a határidőig tart. Ha betelt, vagy a kiíró elindítja, <b>az app sorsol</b>.</li>
+          <li>A jelentkezés a határidőig tart. Ha betelt, a határidő lejárt, vagy a kiíró elindítja, <b>az app sorsol</b> (legalább 4 nevező kell, különben a kupa elmarad).</li>
           <li>A két legerősebb az ágrajz két végére kerül. Ha nem telt be, a legerősebbek <b>erőnyerők</b>.</li>
           <li><b>Egyenes kieséses:</b> minden párharc egy meccs, a győztes továbbjut.</li>
           <li>Minden meccs számít az ELO-ba, <b>a döntő 2x pontot ér</b>.</li>
-          <li>Fordulónként 3 nap van lejátszani a meccset.</li>
+          <li>Bárki rögzítheti a kupameccset a szokásos módon: a meccsrögzítőn a <b>🏆 Bajnoki meccs</b> kapcsoló magától bekapcsol.</li>
+          <li>Egy meccs lejátszására 1 nap van. Ha addig elmarad, a kiíró (vagy Balázs) továbbléptetheti az egyik játékost, ELO nélkül.</li>
           <li>A bajnok bekerül az <b>Arcképcsarnokba</b>.</li>
         </ol>
       </div>
@@ -725,22 +685,26 @@ function goldDust(n = 70) {
 }
 const rerender = () => { $app.innerHTML = arenaView(); bindArena(); };
 const rerenderSub = (sub) => { $app.innerHTML = arenaView(sub); bindArena(sub); };
+const onKupa = () => /^#\/bajnoksag\/?$/.test(location.hash);
+const act = (fn, args) => rpc(fn, { p_token: state.token, p_tour: T.id, ...args });
 
 /* ---------------- műveletek ---------------- */
 export function plusAction() {
+  syncT();
   if (T.status === 'none' || T.status === 'done') return openCreate();
   if (T.status === 'reg') { if (T.entries.includes(me())) toast('Már jelentkeztél. ✍️'); else join(); return; }
-  const nx = nextGame(); if (nx) openRecord(nx);
+  const nx = nextGame(); if (nx) goRecord(nx);
 }
 export function plusLabel() {
+  syncT();
   return T.status === 'reg' ? (T.entries.includes(me()) ? 'Jelentkeztél' : 'Jelentkezem') : T.status === 'running' ? 'Rögzítés' : 'Kiírás';
 }
 
 function openCreate() {
-  if (location.hash !== '#/bajnoksag') location.hash = '#/bajnoksag';
+  if (!onKupa()) location.hash = '#/bajnoksag';
   modal({
     title: 'Lánchíd Kupa kiírása',
-    text: 'Egyenes kieséses, a döntő 2x pontot ér.',
+    text: 'Egyenes kieséses, a döntő 2x pontot ér. Te is automatikusan nevezel.',
     body: `
       <div class="field"><span>Létszám</span><div class="chips ar-size">${[4, 8, 16].map((n) => `<button type="button" class="chip ${n === 8 ? 'active' : ''}" data-n="${n}">${n} fő</button>`).join('')}</div></div>
       <label class="field"><span>Jelentkezési határidő</span>
@@ -749,9 +713,12 @@ function openCreate() {
       <label class="field"><span>Üzenet (nem kötelező)</span><input class="input" name="msg" maxlength="140" placeholder="pl. Péntek este 8-tól a teremben 🏓"></label>`,
     okText: 'Kiírom ⚔️',
     onOk: async (f) => {
-      Object.assign(T, { status: 'reg', size: +(f.querySelector('.ar-size .active')?.dataset.n || 8), bronze: f.elements.bronze.checked,
-        msg: f.elements.msg.value.trim(), by: me(), deadline: Date.now() + +f.elements.dl.value * DAY, entries: [me()], games: [], champion: null });
-      setTimeout(() => { rerender(); stampAnim(0); syncPlus(); }, 0);
+      await rpc('tournament_create', {
+        p_token: state.token, p_size: +(f.querySelector('.ar-size .active')?.dataset.n || 8), p_bronze: f.elements.bronze.checked,
+        p_message: f.elements.msg.value.trim() || null, p_reg_days: +f.elements.dl.value,
+      });
+      await loadTour();
+      setTimeout(() => { rerender(); stampAnim(0); }, 0);
     },
   });
   document.querySelectorAll('#modal .ar-size .chip').forEach((c) => { c.onclick = () => document.querySelectorAll('#modal .ar-size .chip').forEach((x) => x.classList.toggle('active', x === c)); });
@@ -771,20 +738,65 @@ function stampAnim(slot) {
     m.appendChild(sp);
   }
 }
-export function join(id = me()) {
-  if (T.status !== 'reg' || T.entries.includes(id) || T.entries.length >= T.size) return;
-  T.entries.push(id);
-  if (location.hash.startsWith('#/bajnoksag') && !location.hash.slice(12)) { rerender(); stampAnim(T.entries.length - 1); }
-  syncPlus();
-  if (T.entries.length >= T.size) setTimeout(startDraw, 1400);
+async function join() {
+  const btn = $app.querySelector('[data-ar-join]');
+  await busy(btn, async () => {
+    const r = await act('tournament_join');
+    await loadTour();
+    if (r.drawn) drawAnim();
+    else { rerender(); stampAnim(T.entries.indexOf(me())); }
+    toast(r.drawn ? 'Betelt a kupa, jöhet a sorsolás! 🎭' : 'Jelentkeztél! ✍️', 'ok');
+  });
 }
-export function startDraw() {
-  if (T.status !== 'reg') return;
+async function leave() {
+  await busy($app.querySelector('[data-ar-leave]'), async () => { await act('tournament_leave'); await loadTour(); rerender(); toast('Visszaléptél.'); });
+}
+async function drawNow() {
+  await busy($app.querySelector('[data-ar-draw]'), async () => { await act('tournament_draw'); await loadTour(); drawAnim(); });
+}
+function cancelCup() {
+  modal({
+    title: 'Törlöd a kupát?', danger: true, okText: 'Törlés',
+    text: T.status === 'reg' ? 'A jelentkezések elvesznek, a kupa elmarad.' : 'A kupa megszakad. A már lejátszott meccsek és az ELO-pontok megmaradnak.',
+    onOk: async () => { await act('tournament_cancel'); await loadTour(); setTimeout(() => { rerender(); toast('A kupa törölve.'); }, 0); },
+  });
+}
+// kupa kezelése: a kiíró a határidő után, az admin bármikor továbbléptethet; az admin törölhet is
+function openManage() {
+  const admin = state.me.is_admin;
+  const open = T.games.filter((g) => g.a && g.b && !g.w).sort(order);
+  const waited = (g) => { const h = Math.floor((Date.now() - Date.parse(g.ready)) / 3600000); return h >= 1 ? `${h} órája vár` : 'most indult'; };
+  modal({
+    title: '🛠 Kupa kezelése',
+    text: `Ha egy meccs nem tud létrejönni, a játékosok egyike meccs nélkül (ELO nélkül) továbbjuttatható. ${admin ? '' : `Ezt ${T.hours} óra várakozás után teheted meg.`}`,
+    body: `<div class="mg-list">${open.map((g) => { const ok = admin || overdue(g); return `
+      <div class="mg-row"><div class="mg-h"><b>${isFinal(g) ? 'Döntő' : g.r < 0 ? 'Bronzmeccs' : roundName(g.r)}</b><small>${waited(g)}</small></div>
+        <div class="mg-btns">${[g.a, g.b].map((id) => `<button type="button" class="chip" data-wo="${g.r}:${g.i}:${id}" ${ok ? '' : 'disabled'}>${esc(nameOf(id))} tovább</button>`).join('')}</div></div>`; }).join('') || '<p class="ar-note">Most nincs eredményre váró meccs.</p>'}</div>
+      ${admin ? '<button type="button" class="btn block danger" data-mg-cancel style="margin-top:12px">A kupa törlése</button>' : ''}`,
+  });
+  $modal.querySelectorAll('[data-wo]').forEach((b) => { b.onclick = () => busy(b, async () => {
+    const [r, i, id] = b.dataset.wo.split(':');
+    await act('tournament_walkover', { p_round: +r, p_slot: +i, p_winner: id });
+    await loadTour(); $modal.hidden = true;
+    if (isFinal({ r: +r })) celebrate(id); else { rerender(); afterRecord({ r: +r, i: +i }, id); }
+  }); });
+  $modal.querySelector('[data-mg-cancel]')?.addEventListener('click', cancelCup);
+}
+
+// eredmény rögzítése: a szokásos meccsrögzítő, a két játékossal kitöltve (a kupameccs-kapcsoló magától bekapcsol)
+function goRecord(g) {
+  const sides = g.b === me() ? [[g.b], [g.a]] : [[g.a], [g.b]];
+  state.prefill = { kind: 'singles', sides }; state.newKind = 'singles';
+  location.hash = '#/uj';
+}
+
+// sorsolás: függöny, a nevek kártyákon, majd a hídon a helyükre repülnek
+function drawAnim() {
+  syncT();
   const names = T.entries.map((id) => `<span class="cu-card" data-pid="${id}" style="--d:${(Math.random() * 0.6).toFixed(2)}s;--x:${(Math.random() * 200 - 100).toFixed(0)}px;--y:${(Math.random() * 160 - 80).toFixed(0)}px;--r:${(Math.random() * 40 - 20).toFixed(0)}deg">${esc(nameOf(id))}</span>`).join('');
   curtain(`<div class="cu-title">Sorsolás</div><div class="cu-cards">${names}</div>`, () => {
-    // a kártyák helyéről a nevek a hídra repülnek, a saját helyükre
     const from = [...document.querySelectorAll('.curtain .cu-card')].map((c) => ({ id: c.dataset.pid, r: c.getBoundingClientRect(), t: c.textContent }));
-    draw(); window.scrollTo(0, 0); rerender(); syncPlus();
+    window.scrollTo(0, 0); rerender();
     $app.querySelectorAll('.bn').forEach((x, k) => { x.style.animationDelay = `${200 + k * 60}ms`; x.classList.add('drop'); });
     from.forEach((f, k) => {
       const t = $app.querySelector(`.bn [data-pid="${f.id}"]`); if (!t) return;
@@ -799,64 +811,71 @@ export function startDraw() {
 }
 // eredmény után: a lánc aranyban felizzik a következő pillérig, a híd odagördül
 function afterRecord(g, w) {
-  rerender(); syncPlus();
   $app.querySelector(`.bn[data-g="${g.r}:${g.i}"]`)?.classList.add('flash');
   $app.querySelector(`.ch-glow[data-c="${g.r}:${g.i}"]`)?.classList.add('ignite');
   setTimeout(() => fitBridge(true), 900);
-  toast(`${nameOf(w)} továbbjutott! 🏆`, 'ok');
+  toast(g.r === -1 ? `${nameOf(w)} bronzérmes! 🥉` : `${nameOf(w)} továbbjutott! 🏆`, 'ok');
 }
-
-function openRecord(g) {
-  modal({
-    title: isFinal(g) ? '⚔️ A döntő eredménye' : g.r < 0 ? 'Bronzmeccs' : roundName(g.r),
-    text: isFinal(g) ? 'A döntő 2x pontot ér.' : '',
-    body: `<div class="score-row ar-score"><label><span>${nm(g.a)}</span><input class="input score-in" name="a" type="number" inputmode="numeric" min="0" max="99" placeholder="–"></label><b>:</b><label><span>${nm(g.b)}</span><input class="input score-in" name="b" type="number" inputmode="numeric" min="0" max="99" placeholder="–"></label></div>`,
-    okText: 'Rögzítés',
-    onOk: async (f) => {
-      const a = +f.elements.a.value; const b = +f.elements.b.value;
-      if (f.elements.a.value === '' || f.elements.b.value === '' || a === b) throw new Error('Írd be mindkét pontszámot (döntetlen nem lehet).');
-      const final = isFinal(g);
-      const w = record(g, a, b);
-      setTimeout(() => {
-        if (final) celebrate(w); else afterRecord(g, w);
-      }, 0);
-    },
-  });
-  document.querySelector('#modal-form [type=submit]')?.classList.add('ar-gold');
-}
-export function recordDemo(r, i, a, b) { const g = gameAt(r, i); if (!g) return; const fin = isFinal(g); const w = record(g, a, b); if (fin) celebrate(w); else afterRecord(g, w); }
 function celebrate(w) {
   curtain(`<div class="cu-title">A Lánchíd Kupa bajnoka</div><div class="cu-champ">${esc(nameOf(w))}</div>`, () => {
-    const at = new Date().toISOString().slice(0, 10);
-    HALL.push({ name: nameOf(w), at, size: T.size }); archive(); ARCHIVE.push(snapshot(at));
-    rerender(); syncPlus(); goldDust();
+    rerender(); goldDust();
+    loadArchive().catch(() => {});
   }, 1700);
+}
+
+// Élő frissítés: valaki más nevezett, sorsolt vagy eredményt rögzített, miközben a Kupa fül nyitva van
+export function arenaLive(prev) {
+  if (!onKupa() || !$modal.hidden || document.querySelector('.curtain, .burn')) return;
+  const cur = state.tour.cup;
+  if (prev?.id === cur?.id && prev?.status === 'reg' && cur?.status === 'running') { drawAnim(); return; }
+  if (prev?.id === cur?.id && prev?.status === 'running' && cur?.status === 'done') { celebrate(cur.champion); return; }
+  const y = window.scrollY; rerender(); window.scrollTo(0, y);
+  if (cur?.status === 'reg' && prev?.id === cur.id) {
+    const fresh = cur.entries.map((e) => e.p).filter((id) => !prev.entries.some((e) => e.p === id));
+    fresh.forEach((id) => stampAnim(T.entries.indexOf(id)));
+  }
+  if (cur?.status === 'running' && prev?.id === cur.id) {
+    const done = cur.games.find((g) => g.w && !prev.games.some((x) => x.r === g.r && x.i === g.i && x.w));
+    if (done) afterRecord(done, done.w);
+  }
 }
 
 export function syncPlus() {
   const t = document.getElementById('ar-plus-tx'); if (t) t.textContent = plusLabel();
 }
 
-export function bindArena() {
-  syncPlus();
+let dlTimer = 0;
+export function bindArena(sub) {
+  syncT(); syncPlus();
   $app.querySelector('[data-ar-new]')?.addEventListener('click', openCreate);
   $app.querySelector('[data-ar-special]')?.addEventListener('click', () => modal({
     title: '✉️ Egyedi bajnokság',
     text: 'Karácsonyi, majálisos vagy bármilyen különleges kupát (más témával, csoportkörrel, párosokkal) Balázs tud indítani. Beszélj vele, és ő összerakja nektek!',
   }));
-  $app.querySelector('[data-ar-join]')?.addEventListener('click', () => join());
-  $app.querySelector('[data-ar-leave]')?.addEventListener('click', () => { T.entries = T.entries.filter((x) => x !== me()); if (!T.entries.length) T.status = 'none'; rerender(); syncPlus(); });
-  $app.querySelector('[data-ar-draw]')?.addEventListener('click', startDraw);
-  $app.querySelector('[data-ar-rec]')?.addEventListener('click', (e) => { const [r, i] = e.currentTarget.dataset.arRec.split(':').map(Number); openRecord(gameAt(r, i)); });
-  $app.querySelector('[data-ar-bracket]')?.addEventListener('click', () => { $app.innerHTML = bracketView(); fitBridge(false); });
+  $app.querySelector('[data-ar-join]')?.addEventListener('click', join);
+  $app.querySelector('[data-ar-leave]')?.addEventListener('click', leave);
+  $app.querySelector('[data-ar-draw]')?.addEventListener('click', drawNow);
+  $app.querySelector('[data-ar-cancel]')?.addEventListener('click', cancelCup);
+  $app.querySelector('[data-ar-manage]')?.addEventListener('click', openManage);
+  $app.querySelector('[data-ar-rec]')?.addEventListener('click', (e) => { const [r, i] = e.currentTarget.dataset.arRec.split(':').map(Number); goRecord(gameAt(r, i)); });
+  $app.querySelector('[data-ar-bracket]')?.addEventListener('click', () => { $app.innerHTML = bracketView(); bindArena(); });
   if ($app.querySelector('.br-wrap')) requestAnimationFrame(() => fitBridge(false));
   $app.querySelectorAll('[data-cup]').forEach((b) => b.addEventListener('click', () => { openCup = b.dataset.cup; showBridge = false; rerenderSub('hirlap'); window.scrollTo(0, 0); }));
   $app.querySelector('[data-hl-back]')?.addEventListener('click', () => { openCup = null; rerenderSub('hirlap'); });
   $app.querySelector('[data-hl-bridge]')?.addEventListener('click', () => { showBridge = !showBridge; rerenderSub('hirlap'); if (showBridge) setTimeout(() => $app.querySelector('.br-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80); });
   const fresh = $app.querySelector('.portrait.pending'); if (fresh) burnIn(fresh);
   const pl = $app.querySelector('.proc-left'); if (pl) pl.textContent = left(T.deadline);
+  // a jelentkezési határidő lejártakor az adatbázis sorsol (vagy a kupa elmarad); ekkor frissítünk
+  clearTimeout(dlTimer);
+  if (T.status === 'reg' && !sub) {
+    dlTimer = setTimeout(async () => { const prev = state.tour.cup; if (await loadTour()) arenaLive(prev); }, Math.min(2 ** 30, Math.max(0, T.deadline - Date.now()) + 1500));
+  }
+  // a lezárt kupák (Csarnok, Hírlap) a háttérben frissülnek
+  if (sub === 'csarnok' || sub === 'hirlap') loadArchive().then((ch) => { if (ch && location.hash.endsWith(sub) && $modal.hidden && !document.querySelector('.burn')) rerenderSub(sub); }).catch(() => {});
+  // épp rögzített kupameccs (a meccsrögzítőről jövünk vissza)
+  const after = state.tourAfter; state.tourAfter = null;
+  if (after && !sub && T.status !== 'none') {
+    if (after.final) celebrate(after.w);
+    else setTimeout(() => afterRecord({ r: after.round, i: after.slot }, after.w), 300);
+  }
 }
-
-// csak az előnézethez: a videó-szkript ezekkel tölti fel a kupát
-document.getElementById('ar-plus')?.addEventListener('click', () => plusAction());
-window.__arenaDemo = { T, join, startDraw, recordDemo, plusAction, strike, newsTest: (n = 10) => { archive(); const out = []; for (let k = 0; k < n; k++) { const ids = state.players.filter((p) => p.active).map((p) => p.id).sort(() => Math.random() - 0.5); const size = [4, 8, 8][k % 3]; const c = simulate(ids.slice(0, size), size, ids[Math.floor(Math.random() * 3)], `2026-12-${10 + k}`); ARCHIVE.push(c); out.push(newsOf(c)); } return out; }, ids: () => state.players.filter((p) => p.active).map((p) => p.id) };

@@ -6,6 +6,8 @@ import { openAch, openAward } from './honors-ui.js';
 import { scoreHTML } from './matches.js';
 import { rerenderIfLive, route } from './router.js';
 import { setChallengeRefresh, tickTimers } from './challenge.js';
+import { loadTour, readTourCache } from './tournament.js';
+import { arenaLive } from './arena.js';
 
 /* ------------------------------------------------------------------
    4. Élő frissítés és indulás
@@ -34,6 +36,16 @@ export function scheduleReload() {
   }, 400);
 }
 
+// Kupa: a változás után újra lekérjük az állapotát (kb. 1–3 KB), és ha a Bajnokság fül nyitva van, frissítjük
+let tourTimer = null;
+function scheduleTourReload() {
+  clearTimeout(tourTimer);
+  tourTimer = setTimeout(async () => {
+    const prev = state.tour.cup;
+    try { if (await loadTour()) arenaLive(prev); } catch { /* net nélkül marad a régi */ }
+  }, 500);
+}
+
 let channel = null;
 export function subscribe() {
   if (channel) return;
@@ -46,6 +58,9 @@ export function subscribe() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'players' }, scheduleReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, scheduleReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'challenges' }, scheduleReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tournaments' }, scheduleTourReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_entries' }, scheduleTourReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'tournament_games' }, scheduleTourReload)
     .subscribe((status) => $live.classList.toggle('on', status === 'SUBSCRIBED'));
 }
 function unsubscribe() {
@@ -63,6 +78,7 @@ function onVisibility() {
   if (document.hidden) { pauseTimer = setTimeout(unsubscribe, 60000); return; }
   subscribe();
   scheduleReload();
+  scheduleTourReload();
 }
 
 export function showFatal(title, text, retry = true) {
@@ -88,6 +104,7 @@ export async function init() {
   if (store.get(KIND_KEY) === 'doubles') state.matchesKind = 'doubles';
 
   state.token = store.get(TOKEN_KEY);
+  readTourCache();
   const cached = readCache();
   let cachedMe = null;
   try { cachedMe = state.token ? JSON.parse(store.get(ME_KEY)) : null; } catch { /* nincs */ }
@@ -96,7 +113,7 @@ export async function init() {
     // azonnal rajzolunk a telefonon tárolt adatokból, a friss adat a háttérben jön
     hydrate(cached);
     state.me = cachedMe;
-    sync = Promise.all([loadAll(), checkMe()]);
+    sync = Promise.all([loadAll(), checkMe(), loadTour()]);
   } else {
     try {
       await loadAll();
@@ -105,6 +122,7 @@ export async function init() {
       return;
     }
     try { await checkMe(); } catch { state.me = null; }
+    try { await loadTour(); } catch { /* a Bajnokság később betölt */ }
   }
 
   // különdíj- és achievement-ikonok: koppintásra magyarázat (a sor linkje helyett)
