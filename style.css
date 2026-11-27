@@ -267,7 +267,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 /* ============ Alsó menü ============ */
 .nav {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-  display: grid; grid-template-columns: repeat(5, 1fr); align-items: center;
+  display: grid; grid-template-columns: repeat(6, 1fr); align-items: center;
   height: calc(var(--nav-h) + var(--safe-b)); padding-bottom: var(--safe-b);
   background: rgba(14,14,22,.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
   border-top: 1px solid rgba(255,255,255,.06);
@@ -601,3 +601,92 @@ button.match:active { transform: scale(.985); }
 .band.chick .band-tx b { color: var(--text); }
 .band.chx { background: transparent; border-color: var(--border); opacity: .75; }
 .band.chx .band-tx b { color: var(--muted); }
+
+/* ============ Bajnokság: festmény-világ (Schoefft József Széchenyi-portréja nyomán) ============ */
+.nav-arena:not(.active) svg { stroke: #c9a94f; }
+.nav-arena span { white-space: nowrap; }
+body.arena {
+  --bg: #0e1730; --bg-2: #111c38; --card: rgba(18,28,56,.84); --card-2: #1b2a50;
+  --border: rgba(212,175,55,.28); --text: #f3e9d2; --muted: #b9ad8e;
+  --accent: #d4af37; --accent-ink: #1a1206; --gold: #e5c46a; --crimson: #9b1b30;
+  background: transparent;
+}
+html.arena { background: #0b1226; }
+/* elmosott festmény a háttérben + vászon-szemcse */
+body.arena::before {
+  content: ''; position: fixed; inset: -40px; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(10,16,34,.22), rgba(10,16,34,.62) 45%, rgba(8,10,22,.94)), url(img/szechenyi.jpg) center 12% / cover;
+  filter: blur(16px) saturate(1.2) brightness(.85);
+}
+body.arena::after {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .22; mix-blend-mode: overlay;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .55 0 0 0 0 .45 0 0 0 0 .3 0 0 0 .7 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.08) 0 1px, transparent 1px 3px);
+}
+body.arena .topbar { background: rgba(12,19,40,.84); border-bottom: 1px solid rgba(212,175,55,.32); }
+body.arena .logo-text { font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 700; font-size: 25px; letter-spacing: .3px; }
+body.arena .logo-text b { color: var(--gold); font-weight: 700; }
+body.arena .logo-ball { background: radial-gradient(circle at 32% 30%, #fff3c4 0 18%, #d4af37 50%, #8a6418 100%); box-shadow: 0 0 18px rgba(212,175,55,.5); }
+body.arena .nav { background: rgba(12,19,40,.95); border-top: 1px solid rgba(212,175,55,.32); }
+body.arena .nav-item.active { color: var(--gold); }
+body.arena .nav-arena span { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 13px; font-weight: 700; }
+body.arena .nav-plus .plus { background: linear-gradient(135deg, #f6dd8c, #b8862b); box-shadow: 0 10px 30px rgba(212,175,55,.3), 0 0 0 6px #0c1328; }
+
+.ar { text-align: center; padding-bottom: 12px; animation: arIn .8s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes arIn { from { opacity: 0; transform: translateY(12px) scale(.985); filter: sepia(.7) blur(3px); } }
+.ar-head { margin: 2px 0 16px; }
+.ar-orn { display: flex; align-items: center; justify-content: center; gap: 10px; color: var(--gold); font-size: 14px; }
+.ar-orn i { display: block; height: 1px; width: 74px; background: linear-gradient(90deg, transparent, var(--gold)); }
+.ar-orn i:last-child { transform: scaleX(-1); }
+.ar-orn.small { margin-top: 6px; font-size: 18px; }
+.ar-title {
+  font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 700; font-size: 46px; line-height: 1.05; letter-spacing: 1px; margin: 6px 0 2px;
+  background: linear-gradient(180deg, #fff1bd, #e2bd55 50%, #a3792a); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 2px 12px rgba(0,0,0,.55));
+}
+.ar-sub { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-size: 19px; color: var(--muted); margin: 0; }
+/* aranyozott keret */
+.ar-frame {
+  position: relative; margin: 0 auto; max-width: 420px; padding: 15px; border-radius: 3px;
+  background: linear-gradient(135deg, #6f5112, #f3d47e 18%, #a97c22 36%, #fbe9a8 52%, #8a6418 70%, #e8c260 86%, #6f5112);
+  box-shadow: inset 0 0 0 2px #4d3609, inset 0 0 0 5px #edd38a, inset 0 0 0 7px #6b4a10, 0 26px 60px rgba(0,0,0,.65), 0 0 0 1px rgba(0,0,0,.5);
+}
+.ar-frame::before { content: ''; position: absolute; inset: 9px; border: 1px dashed rgba(77,54,9,.55); pointer-events: none; }
+.ar-canvas { position: relative; aspect-ratio: 2 / 3; overflow: hidden; border: 2px solid #3b2a08; container-type: inline-size; background: #1a1a1a; }
+.ar-canvas img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.ar-canvas::after { content: ''; position: absolute; inset: 0; pointer-events: none; box-shadow: inset 0 0 50px rgba(0,0,0,.6); }
+.ar-sign {
+  position: absolute; left: var(--sx); top: var(--sy); width: var(--sw); height: var(--sh);
+  transform: translate(-50%, -50%) rotate(var(--sr)); display: grid; place-items: center; text-align: center; z-index: 1;
+}
+.ar-sign span {
+  font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 700; line-height: 1.02; color: #2b1d0e;
+  font-size: 24px; font-size: var(--fs, 7cqw); text-shadow: 0 1px 0 rgba(255,240,200,.35);
+}
+.ar-sign:not(.ph) span { mix-blend-mode: multiply; }
+.ar-sign.ph {
+  background: linear-gradient(#f2e5c4, #dfca98); border: 4px solid #a9812b; border-radius: 3px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.5), inset 0 0 0 2px #f6e7b8, inset 0 0 22px rgba(120,80,20,.35);
+}
+.ar-ph { position: absolute; top: 8px; right: 8px; z-index: 2; font-size: 10px; letter-spacing: .5px; background: rgba(0,0,0,.6); color: #f3e9d2; padding: 2px 7px; border-radius: 99px; }
+.ar-note { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-size: 19px; line-height: 1.3; color: var(--muted); max-width: 340px; margin: 18px auto 8px; }
+
+/* áttűnés */
+.arena-veil { position: fixed; inset: 0; z-index: 100; pointer-events: all; }
+.veil-paint {
+  position: absolute; inset: -30px;
+  background: radial-gradient(ellipse at 50% 35%, rgba(14,23,48,.1), rgba(8,12,26,.8)), url(img/szechenyi.jpg) center 15% / cover;
+  filter: blur(3px) saturate(1.15);
+}
+.veil-frame { position: absolute; inset: 14px; border: 2px solid #d4af37; border-radius: 4px; opacity: 0;
+  box-shadow: inset 0 0 0 5px rgba(212,175,55,.16), 0 0 34px rgba(212,175,55,.35), inset 0 0 34px rgba(212,175,55,.25); }
+.arena-veil.in .veil-paint { clip-path: circle(0 at var(--vx) var(--vy)); animation: veilOpen .75s cubic-bezier(.7,0,.25,1) forwards; }
+.arena-veil.in .veil-frame { animation: frameIn .55s .28s cubic-bezier(.2,.8,.2,1) forwards; }
+.arena-veil.in.fade { opacity: 0; transition: opacity .55s ease; }
+@keyframes veilOpen { to { clip-path: circle(160vmax at var(--vx) var(--vy)); } }
+@keyframes frameIn { from { opacity: 0; transform: scale(1.07); } to { opacity: 1; transform: scale(1); } }
+.arena-veil.out .veil-paint { clip-path: circle(160vmax at var(--vx) var(--vy)); opacity: 0; animation: veilShow .2s ease forwards; transition: clip-path .62s cubic-bezier(.7,0,.25,1); }
+.arena-veil.out.shrink .veil-paint { clip-path: circle(0 at var(--vx) var(--vy)); }
+@keyframes veilShow { to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ar { animation: none; } }
