@@ -34,8 +34,14 @@ jobs:
               -H "apikey: $SB_KEY" -H "Authorization: Bearer $SB_KEY"
           }
           get "players?select=id,name,elo,elo_doubles,is_admin,active,created_at&order=created_at" > backup/players.json
-          get "matches?select=id,played_at,kind,winner_side,score_1,score_2,note,recorded_by,match_players(player_id,side,elo_before,elo_after)&order=played_at" > backup/matches.json
+          get "matches?select=id,played_at,kind,winner_side,score_1,score_2,note,recorded_by,multiplier,challenge_id,tournament_id,match_players(player_id,side,elo_before,elo_after)&order=played_at" > backup/matches.json
           get "news?select=text,expires_on,updated_at" > backup/news.json
+          # kupák (csak ha a 004_bajnoksag.sql már lefutott; különben kimarad, és a mentés többi része megy tovább)
+          if get "tournaments?select=*,tournament_entries(*),tournament_games(*)&order=created_at" > backup/tournaments.tmp; then
+            mv backup/tournaments.tmp backup/tournaments.json
+          else
+            rm -f backup/tournaments.tmp
+          fi
           if [ "$(date -u +%d)" = "01" ]; then date -u +%F > backup/utolso-ellenorzes.txt; fi
 
       - name: Mentés feltöltése (ha változott)

@@ -15,15 +15,25 @@
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="sky" aria-hidden="true"><i></i><i></i></div>
   <header class="topbar">
     <a href="#/" class="logo" aria-label="SZISZpong főoldal">
-      <span class="logo-ball"></span><span class="logo-text">SZISZ<b>pong</b></span>
+      <span class="logo-card">
+        <span class="logo-face"><span class="logo-ball"></span><span class="logo-text">SZISZ<b>pong</b></span></span>
+        <span class="logo-face back" aria-hidden="true"><span class="logo-ball"></span><span class="logo-text">SZISZ<b>pong</b></span></span>
+      </span>
     </a>
-    <div id="live" class="live" title="Élő kapcsolat"><span class="live-dot"></span><span class="live-label">ÉLŐ</span></div>
+    <div class="top-right">
+      <a href="#/bajnoksag" id="arena-btn" class="arena-btn" hidden>
+        <span class="ab-go"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2.5l4 6.5 4-6.5"/><circle cx="12" cy="15" r="6"/></svg>Bajnokság</span>
+        <span class="ab-back">‹ Vissza</span>
+      </a>
+      <div id="live" class="live" title="Élő kapcsolat"><span class="live-dot"></span><span class="live-label">ÉLŐ</span></div>
+    </div>
   </header>
 
   <main id="app" class="app">
@@ -49,6 +59,30 @@
     <a href="#/profil" data-route="profile" class="nav-item">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
       <span>Profil</span>
+    </a>
+  </nav>
+
+  <!-- A Bajnokság fül saját alsó menüje (a logóval együtt vált át) -->
+  <nav id="nav-arena" class="nav nav-ar" aria-label="Bajnokság menü">
+    <a href="#/bajnoksag" data-ar="kupa" class="nav-item">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 21h18M5 21V10M19 21V10M9 21v-6h6v6M2 10l10-6 10 6"/></svg>
+      <span>Kupa</span>
+    </a>
+    <a href="#/bajnoksag/csarnok" data-ar="csarnok" class="nav-item">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="1"/><circle cx="12" cy="10" r="3"/><path d="M7.5 18a4.5 4.5 0 0 1 9 0"/></svg>
+      <span>Csarnok</span>
+    </a>
+    <button type="button" id="ar-plus" class="nav-item nav-plus" aria-label="Lánchíd Kupa">
+      <span class="plus"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>
+      <small id="ar-plus-tx">Kiírás</small>
+    </button>
+    <a href="#/bajnoksag/hirlap" data-ar="hirlap" class="nav-item">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h13v13a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2z"/><path d="M17 9h3v9a2 2 0 0 1-2 2M7 9h7M7 13h7M7 16h4"/></svg>
+      <span>Hírlap</span>
+    </a>
+    <a href="#/bajnoksag/szabalyok" data-ar="szabalyok" class="nav-item">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h11a2 2 0 0 1 2 2v16l-3-2-3 2-3-2-3 2V5a2 2 0 0 0-2-2z"/><path d="M9 8h6M9 12h6"/></svg>
+      <span>Szabályok</span>
     </a>
   </nav>
 
