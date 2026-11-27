@@ -1,16 +1,16 @@
 // SZISZpong · Bajnokság: külön "festmény" világ (Schoefft József Széchenyi-portréja alapján)
 import { $app } from './core.js';
 
-/* A "nincs bajnokság" kép. Ha megjön a végleges kép:
-   1. cseréld le az img/bajnoksag-ures.jpg fájlt,
-   2. placeholder: false,
-   3. a sign értékeit (százalékban, a képhez mérten) igazítsd a táblához. */
+/* A "nincs bajnokság" kép: Széchenyi kivágva (átlátszó háttérrel), egy nagy képkeretnek támaszkodva.
+   Új kép esetén: cseréld le a fájlt, és a sign értékeit (százalékban, a képhez mérten) igazítsd a keret belsejéhez.
+   framed: true = a kép egy aranykeretes festményként jelenik meg (nem kivágott képhez). */
 export const EMPTY_ART = {
-  src: 'img/bajnoksag-ures.jpg',
-  ratio: '3 / 4',             // a kép oldalaránya (szélesség / magasság)
+  src: 'img/bajnoksag-ures.webp',
+  ratio: '760 / 1016',        // a kép oldalaránya (szélesség / magasság)
+  framed: false,
   placeholder: false,
-  // a tábla belseje a képen, százalékban: közepe (x, y), szélessége, magassága, dőlése fokban; size = betűméret a kép szélességéhez mérten
-  sign: { x: 72.5, y: 62.3, w: 34.5, h: 48.7, rot: 0, size: 7.2 },
+  // a keret belseje: közepe (x, y), szélessége, magassága, dőlése fokban; size = betűméret a kép szélességéhez mérten
+  sign: { x: 70.6, y: 59.8, w: 36.9, h: 51.9, rot: 0, size: 7.6 },
   text: 'Jelenleg<br>nincs<br>bajnokság',
 };
 
@@ -54,9 +54,9 @@ export function renderArena() {
         <h1 class="ar-title">Bajnokság</h1>
         <p class="ar-sub">A KGY-terem nagy tornái</p>
       </header>
-      <figure class="ar-frame">
+      <figure class="${a.framed ? 'ar-frame' : 'ar-stage'}">
         <div class="ar-canvas" style="aspect-ratio:${a.ratio};--sx:${s.x}%;--sy:${s.y}%;--sw:${s.w}%;--sh:${s.h}%;--sr:${s.rot}deg;--fs:${s.size}cqw">
-          <img src="${a.src}" alt="Széchenyi István sportruhában egy üres keret mellett" decoding="async">
+          <img src="${a.src}" alt="Széchenyi István sportruhában egy nagy üres képkeretnek támaszkodik" decoding="async">
           <div class="ar-sign ${a.placeholder ? 'ph' : ''}"><span>${a.text}</span></div>
           ${a.placeholder ? '<small class="ar-ph">helyőrző kép</small>' : ''}
         </div>
