@@ -136,7 +136,7 @@ export function computeHonors() {
     pick('unemployed', cnt, 3, (v) => `${v} meccs az elmúlt 7 napban`);
 
     const duels = new Map();
-    for (const x of w7) if (x.mult > 1) for (const id of x.winners) duels.set(id, (duels.get(id) || 0) + 1);
+    for (const x of w7) if (x.mult > 1 && !x.tourId) for (const id of x.winners) duels.set(id, (duels.get(id) || 0) + 1);
     pick('parbajhos', duels, 1, (v) => `${v} megnyert kihívás az elmúlt 7 napban`);
 
     for (const k of KINDS) {
@@ -197,7 +197,7 @@ export function computeHonors() {
           else if (won) give(id, 'bagel', m.at, ++p.bagel); else give(id, 'nusi', m.at, ++p.nusi);
         }
         if (won && m.delta >= 25) give(id, 'stonks', m.at, ++p.stonks);
-        if (won && m.mult > 1) give(id, 'duel', m.at, ++p.duel);
+        if (won && m.mult > 1 && !m.tourId) give(id, 'duel', m.at, ++p.duel);
         if (won && king && m.losers[0] === king) give(id, 'king', m.at, ++p.king);
         if (h < 5) give(id, 'night', m.at, ++p.night);
         if (h >= 5 && h < 8) give(id, 'early', m.at, ++p.early);

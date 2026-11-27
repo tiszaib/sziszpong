@@ -67,3 +67,53 @@ export function liveTourGame(a, b) {
   const g = c.games.find((x) => !x.w && x.a && x.b && ((x.a === a && x.b === b) || (x.a === b && x.b === a)));
   return g ? { cup: c, game: g, final: isFinalGame(c, g) } : null;
 }
+
+/* ---------- A kupa a többi fülön: címvédő babér, bajnoki krónika, kupameccsek ---------- */
+
+// A címvédő: a legutóbbi lezárt kupa bajnoka (amíg a következő kupának nincs bajnoka)
+export const defender = () => (state.tourEnabled ? state.tour.last?.champion || null : null);
+
+// Arany babérkoszorú mini kupával (nem korona: a 👑 a ranglista elsőjéé)
+const LEAVES = (() => {
+  let s = '';
+  for (const side of [-1, 1]) for (let k = 0; k < 5; k++) {
+    const a = ((90 + side * (38 + k * 26)) * Math.PI) / 180;
+    const x = 12 + 9.2 * Math.cos(a); const y = 12.6 + 9.2 * Math.sin(a);
+    s += `<ellipse cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" rx="2.3" ry="1" transform="rotate(${(90 + side * (38 + k * 26) + 90 + side * 30).toFixed(0)} ${x.toFixed(2)} ${y.toFixed(2)})"/>`;
+  }
+  return s;
+})();
+export const laurelHTML = (cls = '') => `<span class="laurel ${cls}" title="A Lánchíd Kupa címvédője" role="img" aria-label="A Lánchíd Kupa címvédője"><svg viewBox="0 0 24 24" aria-hidden="true"><g class="lv">${LEAVES}</g><path class="cup" d="M9.2 6.6h5.6v1.9a2.8 2.8 0 0 1-5.6 0zM12 11.3v2.1M10.2 14.2h3.6"/></svg></span>`;
+
+// Minden kupa, amiről a telefon tud (lezártak + a mostani)
+export function knownCups() {
+  const all = [...state.tour.archive];
+  const c = state.tour.cup;
+  if (c && !all.some((x) => x.id === c.id)) all.push(c);
+  return all;
+}
+const finalOf = (c) => c.games.find((g) => g.r === tourRounds(c.size) - 1);
+
+// Ha ez a meccs egy lezárt kupa döntője volt: a kupa (a meccsek listájában arany sávot kap)
+export function cupOfFinal(matchId) {
+  return knownCups().find((c) => c.status === 'done' && finalOf(c)?.m === matchId) || null;
+}
+export const cupNo = (c) => state.tour.archive.findIndex((x) => x.id === c.id) + 1;
+
+// Bajnoki krónika egy játékosról: kupák, győzelmek, döntők, kupameccs-mérleg, legjobb eredmény
+const STAGES = ['Bajnok', 'Döntős', 'Elődöntő', 'Negyeddöntő', 'Nyolcaddöntő'];
+export function chronicle(pid) {
+  const cups = knownCups().filter((c) => ['running', 'done'].includes(c.status) && c.entries.some((e) => e.p === pid));
+  if (!cups.length) return null;
+  let titles = 0; let finals = 0; let best = 99;
+  for (const c of cups.filter((x) => x.status === 'done')) {
+    const f = finalOf(c);
+    if (c.champion === pid) { titles++; finals++; best = 0; continue; }
+    if (f && (f.a === pid || f.b === pid)) { finals++; best = Math.min(best, 1); continue; }
+    const out = c.games.find((g) => g.r >= 0 && g.w && g.a && g.b && (g.a === pid || g.b === pid) && g.w !== pid);
+    if (out) best = Math.min(best, tourRounds(c.size) - out.r);
+  }
+  const ms = state.matches.filter((m) => m.tourId && (m.winners.includes(pid) || m.losers.includes(pid)));
+  const w = ms.filter((m) => m.winners.includes(pid)).length;
+  return { cups: cups.length, titles, finals, w, l: ms.length - w, best: STAGES[best] || null };
+}
