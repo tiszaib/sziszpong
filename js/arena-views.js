@@ -280,12 +280,20 @@ function bridgeHTML() {
     </div></div>
     <p class="br-hint">‹ húzd oldalra a hidat ›</p>`;
 }
+// mi a tét: hova jut a győztes
+function stakeOf(g) {
+  if (g.r === -1) return 'A győztes <b>bronzérmet</b> kap';
+  if (isFinal(g)) return 'A győztes <b>a Lánchíd Kupa bajnoka</b>';
+  const k = rounds() - 2 - g.r;
+  return `A győztes <b>${k === 0 ? 'a döntőbe' : k === 1 ? 'az elődöntőbe' : k === 2 ? 'a negyeddöntőbe' : 'a következő fordulóba'}</b> jut`;
+}
 function bracketView() {
   const nx = nextGame();
   return `
     <section class="ar">
       ${head('Lánchíd Kupa', `${T.size} fő · ${roman(new Date().getFullYear())}`)}
-      ${nx ? `<div class="br-next"><small>${isFinal(nx) ? '⚔️ A DÖNTŐ · 2x pont' : nx.r === -1 ? 'Bronzmeccs' : 'Következő meccs · ' + roundName(nx.r)}</small><b>${nm(nx.a)} <i>vs</i> ${nm(nx.b)}</b>
+      ${nx ? `<div class="br-next"><small>${isFinal(nx) ? '⚔️ A DÖNTŐ · 2x pont' : nx.r === -1 ? 'Bronzmeccs' : 'Következő meccs · ' + roundName(nx.r)}</small><div class="nx-vs"><div class="nx-p"><b>${nm(nx.a)}</b><span>ELO ${playerById(nx.a)?.elo ?? '–'}</span></div><i>vs</i><div class="nx-p"><b>${nm(nx.b)}</b><span>ELO ${playerById(nx.b)?.elo ?? '–'}</span></div></div>
+        <div class="nx-stake">${stakeOf(nx)}</div>
         <button type="button" class="btn ar-gold sm" data-ar-rec="${nx.r}:${nx.i}">Eredmény rögzítése</button></div>` : ''}
       ${bridgeHTML()}
       ${szechenyi('', 'running', 'small play')}
