@@ -27,8 +27,9 @@ export function route() {
   routed = true;
   charts.forEach((c) => c.destroy()); charts.length = 0;
   closeModal();
-  if (!state.me) { $nav.hidden = true; state.view = 'auth'; renderAuth(); return; }
-  $nav.hidden = false;
+  const ab = document.getElementById('arena-btn');
+  if (!state.me) { $nav.hidden = true; ab.hidden = true; state.view = 'auth'; renderAuth(); return; }
+  $nav.hidden = false; ab.hidden = false;
   const page = parts[0] || '';
   if (page === 'paros') { state.view = 'doubles'; renderRanking('doubles'); }
   else if (page === 'meccsek') { state.view = 'matches'; renderMatches(); }

@@ -21,35 +21,28 @@ function setTheme(on) {
   document.body.classList.toggle('arena', on);
   document.documentElement.classList.toggle('arena', on);
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', on ? THEME.on : THEME.off);
+  const btn = document.getElementById('arena-btn');
+  if (btn) btn.setAttribute('href', on ? '#/' : '#/bajnoksag');
 }
 
-// Áttűnés: belépéskor a festmény a Bajnokság gombból kör alakban szétterül, aranykeret rajzolódik,
-// majd feltárul az oldal. Kilépéskor a festmény visszahúzódik a gombba.
+// Átváltás: a SZISZpong felirat megfordul (hátoldalán a "fancy" változat),
+// közben a fejléc alatt egy rövid, úszó olajfestmény-felhős töltőképernyő jelenik meg.
 let busy = false;
 export function arenaSwitch(on, render, { instant = false } = {}) {
+  const html = document.documentElement;
+  html.classList.toggle('arena-flip', on);
   if (instant || reduced() || busy) { setTheme(on); render(); return; }
   busy = true;
-  const btn = document.querySelector('.nav-item[data-route="arena"]');
-  const r = btn?.getBoundingClientRect();
-  const x = r ? Math.round(r.left + r.width / 2) : innerWidth / 2;
-  const y = r ? Math.round(r.top + r.height / 2) : innerHeight;
   const veil = document.createElement('div');
-  veil.className = `arena-veil ${on ? 'in' : 'out'}`;
-  veil.style.setProperty('--vx', x + 'px');
-  veil.style.setProperty('--vy', y + 'px');
-  veil.innerHTML = '<div class="veil-paint"></div><div class="veil-frame"></div>';
+  veil.className = 'arena-veil';
+  veil.style.top = (document.querySelector('.topbar')?.offsetHeight || 0) + 'px';
+  veil.innerHTML = `<div class="vl-sky"><i></i><i></i></div>${on ? '<div class="vl-mark">BAJNOKSÁG<small>a KGY-terem nagy tornái</small></div>' : ''}`;
   document.body.appendChild(veil);
-  const done = () => { veil.remove(); busy = false; };
-  if (on) {
-    // 1) festmény szétterül + keret (0–750 ms), 2) alatta átvált az oldal, 3) a fátyol elhalványul
-    setTimeout(() => { setTheme(true); render(); window.scrollTo(0, 0); }, 760);
-    setTimeout(() => veil.classList.add('fade'), 820);
-    setTimeout(done, 1400);
-  } else {
-    // a festmény takar, alatta visszaáll a megszokott app, majd a festmény visszahúzódik a gombba
-    setTimeout(() => { setTheme(false); render(); window.scrollTo(0, 0); veil.classList.add('shrink'); }, 220);
-    setTimeout(done, 900);
-  }
+  requestAnimationFrame(() => requestAnimationFrame(() => veil.classList.add('show')));
+  const swap = on ? 650 : 480; const hide = on ? 1350 : 900;
+  setTimeout(() => { setTheme(on); render(); window.scrollTo(0, 0); }, swap);
+  setTimeout(() => veil.classList.add('hide'), hide);
+  setTimeout(() => { veil.remove(); busy = false; }, hide + 600);
 }
 
 export function renderArena() {

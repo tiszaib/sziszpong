@@ -19,11 +19,21 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div class="sky" aria-hidden="true"><i></i><i></i></div>
   <header class="topbar">
     <a href="#/" class="logo" aria-label="SZISZpong főoldal">
-      <span class="logo-ball"></span><span class="logo-text">SZISZ<b>pong</b></span>
+      <span class="logo-card">
+        <span class="logo-face"><span class="logo-ball"></span><span class="logo-text">SZISZ<b>pong</b></span></span>
+        <span class="logo-face back" aria-hidden="true"><span class="logo-ball"></span><span class="logo-text">SZISZ<b>pong</b></span></span>
+      </span>
     </a>
-    <div id="live" class="live" title="Élő kapcsolat"><span class="live-dot"></span><span class="live-label">ÉLŐ</span></div>
+    <div class="top-right">
+      <a href="#/bajnoksag" id="arena-btn" class="arena-btn" hidden>
+        <span class="ab-go"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2.5l4 6.5 4-6.5"/><circle cx="12" cy="15" r="6"/></svg>Bajnokság</span>
+        <span class="ab-back">‹ Vissza</span>
+      </a>
+      <div id="live" class="live" title="Élő kapcsolat"><span class="live-dot"></span><span class="live-label">ÉLŐ</span></div>
+    </div>
   </header>
 
   <main id="app" class="app">
@@ -45,10 +55,6 @@
     <a href="#/meccsek" data-route="matches" class="nav-item">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>
       <span>Meccsek</span>
-    </a>
-    <a href="#/bajnoksag" data-route="arena" class="nav-item nav-arena">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2.5l4 6.5 4-6.5"/><circle cx="12" cy="15" r="6"/><path d="M12 12l1 2 2.2.3-1.6 1.5.4 2.2-2-1-2 1 .4-2.2-1.6-1.5 2.2-.3z"/></svg>
-      <span>Bajnokság</span>
     </a>
     <a href="#/profil" data-route="profile" class="nav-item">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
