@@ -966,3 +966,7 @@ b.bt { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 19px; line-
 @keyframes smoke { from { opacity: .9; transform: scale(.5); } to { opacity: 0; transform: translate(var(--dx), -70px) scale(2.4); } }
 @media (prefers-reduced-motion: reduce) { .portrait.big, .burn-bg { animation: none !important; } }
 .bn-p.bye { opacity: .55; }
+.ar-stage.small { max-width: 270px; margin: -4px auto 14px; }
+.ar-stage.play { max-width: 230px; margin: 14px auto 0; }
+.ar-stage.small img { animation: none; }
+.ar-sign .sg-n { display: block; font-size: 2.1em; line-height: 1.05; color: #7a1426; }

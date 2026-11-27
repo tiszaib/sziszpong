@@ -19,7 +19,12 @@ export const EMPTY_ART = {
    Ha egy állapothoz még nincs kép (null), a fenti "nincs bajnokság" kép ugrik be helyette.
    reg = jelentkezés (toboroz), running = zajlik (játszik), done = vége (kupát emel).
    Később a témás kupák (karácsony, majális…) a saját képeiket a téma-csomagból adják. */
-export const ARTS = { none: EMPTY_ART, reg: null, running: null, done: null };
+export const ARTS = {
+  none: EMPTY_ART,
+  reg: { src: 'img/bajnoksag-reg.webp', ratio: '760 / 1056', sign: { x: 70.7, y: 60.3, w: 35.2, h: 51.6, rot: 0, size: 7.2 } },
+  running: { src: 'img/bajnoksag-running.webp', ratio: '760 / 1252', sign: null },
+  done: { src: 'img/bajnoksag-done.webp', ratio: '760 / 1165', sign: { x: 71.0, y: 64.5, w: 32.6, h: 43.0, rot: 0, size: 6.8 } },
+};
 export const artFor = (key) => ARTS[key] || ARTS.none;
 
 const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;

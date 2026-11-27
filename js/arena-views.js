@@ -73,13 +73,16 @@ const head = (title, sub) => `
     ${sub ? `<p class="ar-sub">${sub}</p>` : ''}
   </header>`;
 const orn = '<div class="ar-orn small" aria-hidden="true"><i></i>❦<i></i></div>';
-function szechenyi(text, key = 'none') {
-  const a = artFor(key); const s = a.sign;
+const ALT = { none: 'Széchenyi István sportruhában egy nagy képkeretnek támaszkodik', reg: 'Széchenyi az ütőjével a keretre mutat, toboroz',
+  running: 'Széchenyi István pingpongozik', done: 'Széchenyi a magasba emeli a kupát' };
+function szechenyi(text, key = 'none', cls = '') {
+  const a = artFor(key); const s = a.sign; const k = a === artFor('none') ? 'none' : key;
+  const vars = s ? `;--sx:${s.x}%;--sy:${s.y}%;--sw:${s.w}%;--sh:${s.h}%;--sr:${s.rot}deg;--fs:${s.size}cqw` : '';
   return `
-    <figure class="ar-stage">
-      <div class="ar-canvas" style="aspect-ratio:${a.ratio};--sx:${s.x}%;--sy:${s.y}%;--sw:${s.w}%;--sh:${s.h}%;--sr:${s.rot}deg;--fs:${s.size}cqw">
-        <img src="${a.src}" alt="Széchenyi István sportruhában egy nagy képkeretnek támaszkodik" decoding="async">
-        <div class="ar-sign"><span>${text}</span></div>
+    <figure class="ar-stage ${cls}">
+      <div class="ar-canvas" style="aspect-ratio:${a.ratio}${vars}">
+        <img src="${a.src}" alt="${ALT[k]}" decoding="async">
+        ${s && text ? `<div class="ar-sign"><span>${text}</span></div>` : ''}
       </div>
     </figure>`;
 }
@@ -116,6 +119,7 @@ function procView() {
   return `
     <section class="ar">
       ${head('Lánchíd Kupa', 'Kiáltvány')}
+      ${szechenyi(full ? 'Betelt!' : `Még<b class="sg-n">${T.size - T.entries.length}</b>szabad<br>hely`, 'reg', 'small')}
       <div class="proc">
         <div class="proc-top">KIÁLTVÁNY</div>
         <p class="proc-lead">Lánchíd Kupát hirdet <b>${esc(nameOf(T.by))}</b>.<br>${T.size} hely · egyenes kieséses${T.bronze ? ' · bronzmeccs' : ''} · a döntő 2x pontot ér</p>
@@ -284,6 +288,7 @@ function bracketView() {
       ${nx ? `<div class="br-next"><small>${isFinal(nx) ? '⚔️ A DÖNTŐ · 2x pont' : nx.r === -1 ? 'Bronzmeccs' : 'Következő meccs · ' + roundName(nx.r)}</small><b>${nm(nx.a)} <i>vs</i> ${nm(nx.b)}</b>
         <button type="button" class="btn ar-gold sm" data-ar-rec="${nx.r}:${nx.i}">Eredmény rögzítése</button></div>` : ''}
       ${bridgeHTML()}
+      ${szechenyi('', 'running', 'small play')}
       ${orn}
     </section>`;
 }
