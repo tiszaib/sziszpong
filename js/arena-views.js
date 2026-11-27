@@ -493,7 +493,8 @@ const TPL = {
   },
   items: {
     upset: [
-      ['Óriásölés! {W} jobbnak bizonyult {L} ellen', '{S} {R}, {D} ELO-pont hátrányból.'],
+      ['Nagy skalp {W} övén', '{S} {L} ellen {R}, pedig {D} ELO-ponttal gyengébbnek számított.'],
+      ['Senki sem fogadott volna rá: {W} – {L} {S}', '{D} ELO-pont hátrányból jutott tovább {R}.'],
       ['Dávid és Góliát: {W} – {L} {S}', '{D} ELO-pont különbség sem számított {R}.'],
       ['Meglepetés {R}: {W} továbbjutott', 'A papírforma {L} mellett szólt ({D} ELO-ponttal), mégis {S} lett a vége.'],
       ['Borult a papírforma {R}', '{W} – {L} {S}, pedig {D} ELO-pont volt köztük.'],
@@ -546,6 +547,10 @@ const TPL = {
       ['A kiíró kupát nyert!', 'Bundát kiáltanak a kételkedők! {W} szerint minden tisztán zajlott.'],
       ['Bundagyanú a KGY-teremben?', 'A kiíró, {W}, maga vitte el a kupát. Bundát kiáltanak a kételkedők!'],
       ['Kiírta, megnyerte, hazavitte', 'A kételkedők bundát kiáltanak, {W} csak mosolyog.'],
+      ['Saját kupáját nyerte meg: {W}', 'Kiírta, végigverekedte, megnyerte. Ilyen a jó házigazda.'],
+      ['Házigazdához illő győzelem', '{W} nemcsak kiírta a kupát, hanem meg is nyerte.'],
+      ['A szervező a csúcson', '{W} bebizonyította, hogy nemcsak kiírni tud kupát.'],
+      ['Ki mint vet, úgy arat', '{W} elvetette a kupa magját, és ő is aratott.'],
     ],
     organizerOut: [
       ['A házigazda korán búcsúzott', 'A kiíró, {N}, már {R} kiesett. De a kupát neki köszönhetjük!'],
