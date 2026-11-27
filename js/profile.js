@@ -7,6 +7,7 @@ import { fold } from './honors-ui.js';
 import { bindMatchCards, matchListByDay } from './matches.js';
 import { duration } from './mystats.js';
 import { bindChallenges, challengeButtonHTML } from './challenge.js';
+import { chronicle, defender, laurelHTML, loadArchive } from './tournament.js';
 
 /* ---------- Profil ---------- */
 export function renderProfile(id) {
@@ -64,6 +65,7 @@ export function renderProfile(id) {
       <div class="avatar">${esc(p.name.trim().charAt(0).toUpperCase())}</div>
       <div class="profile-name">${esc(p.name)}</div>
       ${p.active ? '' : '<div class="profile-rank">Nem aktív játékos</div>'}
+      ${defender() === p.id ? `<a class="defender-line" href="#/bajnoksag/csarnok">${laurelHTML()}<span>A Lánchíd Kupa címvédője</span></a>` : ''}
     </div>
     ${own ? '' : challengeButtonHTML(p.id)}
     ${myAwards.length ? `<div class="award-list">${myAwards.map((key) => {
@@ -79,6 +81,7 @@ export function renderProfile(id) {
       <div class="ktrack ${kind === 'doubles' ? 'show-d' : ''}" id="ktrack">${panel('singles')}${panel('doubles')}</div>
     </div>
 
+    ${chronHTML(chronicle(p.id))}
     ${own ? '<a class="btn block stats-btn" href="#/statok">📊 Statisztikáim</a>' : ''}
     <a class="btn block ach-btn" href="#/achi/${p.id}"><span>🏆 Achievementek</span><b>${achLevels(p.id)} / ${ACH_LEVELS} szint</b></a>
 
@@ -115,6 +118,8 @@ export function renderProfile(id) {
 
   bindMatchCards();
   if (!own) bindChallenges($app, p.id);
+  // a krónikához a lezárt kupák kellenek (a telefon csak az újakat kéri le)
+  loadArchive().then((ch) => { if (ch && state.view === 'profile' && (location.hash.split('/')[2] || state.me.id) === p.id) { const y = window.scrollY; renderProfile(id); window.scrollTo(0, y); } }).catch(() => {});
   const lo = $app.querySelector('#logout');
   if (lo) lo.onclick = async () => {
     try { await sb.rpc('logout', { p_token: state.token }); } catch { /* mindegy */ }
@@ -129,6 +134,19 @@ export function renderProfile(id) {
     if (cd) drawChart(cd, d.history, '#ff7a1a', 'rgba(255,122,26,');
     fit();
   }
+}
+
+// Bajnoki krónika: csak annál látszik, aki már játszott Lánchíd Kupán
+function chronHTML(c) {
+  if (!c) return '';
+  const cell = (v, t) => `<div class="stat"><b>${v}</b><span>${t}</span></div>`;
+  return `
+    <a class="card chron" href="#/bajnoksag/hirlap">
+      <div class="chron-h"><span class="chron-ic">🏆</span><b>Bajnoki krónika</b>${c.best ? `<em>legjobb: ${esc(c.best)}</em>` : ''}</div>
+      <div class="stats chron-stats">
+        ${cell(c.cups, 'kupa')}${cell(c.titles, 'kupagyőzelem')}${cell(c.finals, 'döntő')}${cell(`${c.w}–${c.l}`, 'kupameccsek')}
+      </div>
+    </a>`;
 }
 
 export function drawChart(canvas, history, color, rgbaPrefix) {

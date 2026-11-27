@@ -1,8 +1,13 @@
 // SZISZpong · Meccsek lista és meccs részletek
-import { $app, KIND_KEY, clock, closeModal, dayLabel, esc, kindLabel, kindSwitch, modal, nameOf, namesOf, signed, state, store } from './core.js';
+import { $app, $modal, KIND_KEY, clock, closeModal, dayLabel, esc, kindLabel, kindSwitch, modal, nameOf, namesOf, signed, state, store } from './core.js';
 import { bandHTML } from './honors-ui.js';
 import { startRematch } from './newmatch.js';
 import { challengeBandHTML, challengeEvents } from './challenge.js';
+import { cupNo, cupOfFinal, loadArchive } from './tournament.js';
+
+// kupameccs jelölése: 🏆 Kupa, a döntő 2x
+const tourTag = (m) => `<span class="x15 tour">🏆 Kupa${m.mult > 1 ? ' · 2x' : ''}</span>`;
+const isCh = (m) => !!m.challengeId || (m.mult > 1 && !m.tourId);
 
 /* ---------- Meccsek ---------- */
 export const scoreHTML = (m) => (m.scoreW != null ? `${m.scoreW}:${m.scoreL}` : '');
@@ -11,7 +16,7 @@ export function matchCard(m) {
   const rec = m.recordedBy && !m.winners.includes(m.recordedBy) && !m.losers.includes(m.recordedBy)
     ? `<div class="rec">rögzítette: ${esc(nameOf(m.recordedBy))}</div>` : '';
   return `
-    <button type="button" class="match ${m.kind === 'doubles' ? 'dbl' : ''} ${m.mult > 1 ? 'chm' : ''} ${state.fresh.has(m.id) ? 'fresh' : ''}" data-match="${m.id}">
+    <button type="button" class="match ${m.kind === 'doubles' ? 'dbl' : ''} ${isCh(m) ? 'chm' : ''} ${m.tourId ? 'tgm' : ''} ${state.fresh.has(m.id) ? 'fresh' : ''}" data-match="${m.id}">
       <div class="side winner">
         <span class="pl">${m.winners.map((id) => esc(nameOf(id))).join('<br>')}</span>
         <span class="delta up">${signed(m.delta)}</span>
@@ -19,7 +24,7 @@ export function matchCard(m) {
       <div class="mid">
         ${m.scoreW != null ? `<div class="score">${scoreHTML(m)}</div>` : '<div class="vs">VS</div>'}
         <span class="when">${clock(m.at)}${m.note ? ' · 💬' : ''}</span>
-        ${m.mult > 1 ? '<span class="x15">⚔️ 1,5x</span>' : ''}
+        ${m.tourId ? tourTag(m) : isCh(m) ? '<span class="x15">⚔️ 1,5x</span>' : ''}
       </div>
       <div class="side right loser">
         <span class="pl">${m.losers.map((id) => esc(nameOf(id))).join('<br>')}</span>
@@ -46,6 +51,8 @@ export function matchListByDay(matches, bands = false, events = []) {
     day(m.at);
     if (bands) {
       for (const e of state.honors?.byMatch.get(m.id) || []) if (!e.kind || e.kind === m.kind) html += bandHTML(e);
+      const cup = m.tourId ? cupOfFinal(m.id) : null;
+      if (cup) html += `<div class="band tourb"><span class="band-ic">🏆</span><span class="band-tx"><b>Lánchíd Kupa${cupNo(cup) ? ` · ${cupNo(cup)}.` : ''}</b><span>A bajnok: <strong>${esc(nameOf(cup.champion))}</strong></span></span></div>`;
     }
     html += matchCard(m) + '<div style="height:8px"></div>';
   }
@@ -75,6 +82,8 @@ export function renderMatches() {
     t.onclick = () => { state.matchesKind = t.dataset.kind; store.set(KIND_KEY, t.dataset.kind); state.feedLimit = 40; renderMatches(); };
   });
   bindMatchCards();
+  // a kupadöntők arany sávjához a lezárt kupák kellenek (a telefon csak az újakat kéri le)
+  loadArchive().then((ch) => { if (ch && state.view === 'matches' && $modal.hidden) { const y = window.scrollY; renderMatches(); window.scrollTo(0, y); } }).catch(() => {});
   const more = $app.querySelector('#more');
   if (more) more.onclick = () => { state.feedLimit += 40; renderMatches(); };
 }
@@ -104,7 +113,7 @@ export function openMatch(id) {
     </a>`).join('');
   modal({
     body: `
-      <div class="md-head">${m.mult > 1 ? '<span class="md-ch">⚔️ Kihívás · 1,5x</span>' : `${kindLabel(m.kind)} meccs`} · ${esc(dayLabel(m.at))} ${clock(m.at)}</div>
+      <div class="md-head">${m.tourId ? `<span class="md-ch tour">🏆 Lánchíd Kupa${m.mult > 1 ? ' · döntő · 2x' : ''}</span>` : isCh(m) ? '<span class="md-ch">⚔️ Kihívás · 1,5x</span>' : `${kindLabel(m.kind)} meccs`} · ${esc(dayLabel(m.at))} ${clock(m.at)}</div>
       <div class="md-score">
         <div class="md-side win">${people(m.winners, 'up')}<span class="md-badge">🏆 nyert</span></div>
         <div class="md-mid">${m.scoreW != null ? `<span>${m.scoreW}</span><i>:</i><span>${m.scoreL}</span>` : '<i>VS</i>'}</div>

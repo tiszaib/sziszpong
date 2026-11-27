@@ -3,6 +3,7 @@ import { $app, esc, ranked, ratingOf, signed, state } from './core.js';
 import { gamesOf, newsVisible, statsOf } from './data.js';
 import { awardIcons } from './honors-ui.js';
 import { bindChallenges, challengeCardHTML, inLiveChallenge } from './challenge.js';
+import { defender, laurelHTML } from './tournament.js';
 
 /* ---------- Ranglisták (egyéni és páros) ---------- */
 export function renderRanking(kind) {
@@ -12,13 +13,14 @@ export function renderRanking(kind) {
   const top = showPodium ? list.slice(0, 3) : [];
   const nMatches = state.matches.filter((m) => m.kind === kind).length;
 
+  const champ = kind === 'singles' ? defender() : null;   // a Lánchíd Kupa címvédője (egyéni kupa)
   const row = (p, i) => {
     const me = p.id === state.me.id;
     const d = statsOf(p.id, kind).lastDelta;
     return `
       <a class="rank-row ${me ? 'me' : ''} p${i + 1}" href="#/profil/${p.id}">
         <div class="rank-pos">${i + 1}</div>
-        <div class="rank-name">${esc(p.name)}${kind === 'singles' && inLiveChallenge(p.id) ? '<span class="ch-flag" title="Élő kihívás">⚔️</span>' : ''}${me ? '<span class="tag you">te</span>' : ''}<span class="aws">${awardIcons(p.id, kind)}</span></div>
+        <div class="rank-name">${esc(p.name)}${p.id === champ ? laurelHTML() : ''}${kind === 'singles' && inLiveChallenge(p.id) ? '<span class="ch-flag" title="Élő kihívás">⚔️</span>' : ''}${me ? '<span class="tag you">te</span>' : ''}<span class="aws">${awardIcons(p.id, kind)}</span></div>
         <div class="rank-elo"><strong>${ratingOf(p, kind)}</strong>${d != null ? `<span class="delta ${d > 0 ? 'up' : 'down'}">${signed(d)}</span>` : ''}</div>
       </a>`;
   };
@@ -33,7 +35,7 @@ export function renderRanking(kind) {
         ${[1, 0, 2].map((i) => `
           <a class="podium-item g${i + 1}" href="#/profil/${top[i].id}">
             <span class="crown">${i === 0 ? '👑' : ''}</span>
-            <div class="pname">${esc(top[i].name)}</div>
+            <div class="pname">${esc(top[i].name)}${top[i].id === champ ? laurelHTML('sm') : ''}</div>
             <div class="pelo">${ratingOf(top[i], kind)}</div>
             <div class="podium-block">${i + 1}</div>
           </a>`).join('')}
