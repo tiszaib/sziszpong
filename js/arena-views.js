@@ -484,7 +484,7 @@ const TPL = {
     dynasty: ['{W}-korszak a KGY-teremben?', 'Megállíthatatlan: {W} {N}. kupája!', 'Dinasztia születik: {W} immár {N}-szoros bajnok!'],
     underdog: ['Senki sem számított rá: {W} a bajnok!', 'Hamupipőke-történet: {W} nyert!', 'Borult a papírforma: {W} a bajnok!', 'A sötét ló befutott: {W}!'],
     favourite: ['A papírforma érvényesült: {W} a bajnok!', 'Nem volt meglepetés: {W} nyert!', 'A legerősebb jutott fel a csúcsra: {W}!'],
-    organizer: ['A kiíró maga vitte el: {W}!', 'Kiírta, megnyerte: {W}!', 'Házigazda-győzelem: {W} a bajnok!'],
+    organizer: ['A kiíró maga vitte el: {W}!', 'Kiírta, megnyerte: {W}!', 'Házigazda-győzelem: {W} a bajnok!', 'A kiíró kupát nyert: {W}!'],
   },
   deck: {
     close: ['A döntőben {A} – {B} {S}, hosszabbításban dőlt el. {L} ezüstérmes.', 'Drámai döntő: {A} – {B} {S}. {L} karnyújtásnyira volt.', 'Az utolsó labdáig izgalmas volt: {A} – {B} {S}.'],
@@ -541,6 +541,11 @@ const TPL = {
     organizer: [
       ['A kiíró, {N}, {R} jutott', 'Kiírni és játszani is tud.'],
       ['Házigazda: {N}', 'A kupa kiírója {R} jutott.'],
+    ],
+    organizerWin: [
+      ['A kiíró kupát nyert!', 'Bundát kiáltanak a kételkedők! {W} szerint minden tisztán zajlott.'],
+      ['Bundagyanú a KGY-teremben?', 'A kiíró, {W}, maga vitte el a kupát. Bundát kiáltanak a kételkedők!'],
+      ['Kiírta, megnyerte, hazavitte', 'A kételkedők bundát kiáltanak, {W} csak mosolyog.'],
     ],
     organizerOut: [
       ['A házigazda korán búcsúzott', 'A kiíró, {N}, már {R} kiesett. De a kupát neki köszönhetjük!'],
@@ -608,6 +613,7 @@ function newsOf(c) {
   const newbies = c.entries.filter((id) => !prev.some((x) => x.entries.includes(id)) && id !== W && id !== L);
   const deb = newbies.map((id) => { const g = lostAt(id); return { id, r: g ? g.r : R }; }).filter((x) => prev.length && x.r >= R - 2).sort((a, b) => b.r - a.r)[0];
   if (deb) add('debut', 65, { N: nm(deb.id), R: stageTo(deb.r, R) });
+  if (c.by && c.by === W) { const [h, t] = pick(TPL.items.organizerWin.slice(hk === 'organizer' ? 1 : 0)); cand.push({ prio: 86, h: fill(h, { W: nm(W) }), t: fill(t, { W: nm(W) }) }); }
   if (c.by && c.by !== W && c.by !== L) { const g = lostAt(c.by); if (g) add(g.r <= R - 3 ? 'organizerOut' : 'organizer', 40, { N: nm(c.by), R: g.r <= R - 3 ? stageIn(g.r, R) : stageTo(g.r, R) }); }
   const br = c.games.find((g) => g.r === -1 && g.w);
   if (br) add('bronze', 72, { W: nm(br.w), L: nm(loserOf(br)), S: scW(br) });
