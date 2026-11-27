@@ -974,3 +974,38 @@ b.bt { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 19px; line-
 .br-next .nx-p b { display: block; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 25px; line-height: 1.05; } .br-next .nx-p span { font-size: 13px; color: var(--muted); }
 .br-next .nx-vs > i { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; color: var(--gold); font-size: 19px; padding: 0 8px; }
 .br-next .nx-stake { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 17px; color: #fff1bd; margin-bottom: 4px; } .br-next .nx-stake b { color: var(--gold); font-size: inherit; }
+
+/* ---------- Hírlap: a lezárt kupák archívuma ---------- */
+.section-ar { margin: 22px 0 8px; font-family: 'Cormorant Garamond', Georgia, serif; font-variant: small-caps; letter-spacing: 1.5px; font-weight: 700; color: var(--gold); font-size: 19px; }
+.hl-stack { display: grid; gap: 16px; max-width: 420px; margin: 0 auto; }
+.hl-mini, .hl-page { --ink: #23180a; color: var(--ink); text-align: left; border-radius: 2px; border: 0;
+  background: radial-gradient(ellipse at 50% 25%, #f3e9cf, #dfcfa6 80%, #cdb88a);
+  box-shadow: 0 14px 30px rgba(0,0,0,.5), inset 0 0 40px rgba(120,80,20,.25); }
+.hl-mini { display: grid; gap: 4px; width: 100%; padding: 12px 14px 12px; font: inherit; cursor: pointer; transform: rotate(var(--r)); transition: transform .2s; animation: procIn .6s both; }
+.hl-mini:active { transform: rotate(0) scale(.98); }
+.hl-mast { display: block; text-align: center; font-family: 'Abril Fatface', Georgia, serif; font-size: 26px; line-height: 1; letter-spacing: .3px; }
+.hl-mast.big { font-size: 40px; }
+.hl-sub { display: flex; justify-content: space-between; gap: 6px; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+  border-top: 3px double var(--ink); border-bottom: 1px solid var(--ink); padding: 2px 0; margin: 4px 0 6px; }
+.hl-head { font-family: 'Abril Fatface', Georgia, serif; font-weight: 400; font-size: 22px; line-height: 1.08; text-align: center; text-transform: uppercase; }
+.hl-head.big { font-size: 31px; margin: 6px 0 4px; }
+.hl-deck { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-size: 16px; text-align: center; color: #4a3a1a; }
+.hl-deck.big { font-size: 18px; margin: 0 0 10px; padding-bottom: 8px; border-bottom: 1px solid var(--ink); }
+.hl-go { justify-self: end; font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 700; color: #9b1b30; font-size: 16px; }
+.hl-back { display: block; margin: 0 0 12px; background: none; border: 0; color: var(--gold); font: 600 15px 'Outfit', sans-serif; padding: 4px 0; cursor: pointer; }
+.hl-page { position: relative; max-width: 420px; margin: 0 auto; padding: 14px 14px 16px; animation: paperIn .7s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes paperIn { from { opacity: 0; transform: translateY(30px) rotate(-4deg) scale(.92); } }
+.hl-body { display: grid; grid-template-columns: 42% 1fr; gap: 12px; align-items: start; }
+.hl-pic { margin: 0; border: 1.5px solid var(--ink); padding: 4px; background: #efe4c6; }
+.hl-pic img { display: block; width: 100%; filter: grayscale(1) sepia(.55) contrast(1.35) brightness(1.02); mix-blend-mode: multiply; }
+.hl-pic figcaption { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-size: 12.5px; text-align: center; margin-top: 3px; }
+.hl-col { display: grid; gap: 0; }
+.hl-item { padding: 6px 0; } .hl-item + .hl-item { border-top: 1px solid rgba(35,24,10,.5); }
+.hl-item b { display: block; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 17px; line-height: 1.12; }
+.hl-item span { display: block; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 14.5px; color: #4a3a1a; margin-top: 2px; }
+.hl-bridge-btn { display: block; width: 100%; margin-top: 12px; padding: 9px; border: 1.5px solid var(--ink); background: transparent; color: var(--ink);
+  font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 700; font-size: 17px; letter-spacing: .5px; cursor: pointer; }
+.hl-page + .br-wrap { margin-top: 18px; }
+@media (prefers-reduced-motion: reduce) { .hl-mini, .hl-page { animation: none !important; } }
+.hl-sub span { white-space: nowrap; }
+.hl-page .hl-sub { font-size: 11px; letter-spacing: .8px; }

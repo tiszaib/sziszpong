@@ -90,7 +90,7 @@ function szechenyi(text, key = 'none', cls = '') {
 /* ---------------- nézetek ---------------- */
 export function arenaView(sub) {
   if (sub === 'csarnok') return hallView();
-  if (sub === 'ranglista') return cupsView();
+  if (sub === 'hirlap') return heraldView();
   if (sub === 'szabalyok') return rulesView();
   if (T.status === 'reg') return procView();
   if (T.status === 'running') return bracketView();
@@ -306,7 +306,7 @@ function fitBridge(smooth) {
   const W = +pan.dataset.w; const avail = wrap.clientWidth;
   const z = W > avail && avail / W > 0.78 ? avail / W : 1; pan.style.zoom = z;
   $app.querySelector('.br-hint').hidden = W * z <= avail + 2;
-  const nx = nextGame(); const el = $app.querySelector(nx ? `.bn[data-g="${nx.r}:${nx.i}"]` : '.bn.final');
+  const nx = $app.querySelector('.hl-page') ? null : nextGame(); const el = $app.querySelector(nx ? `.bn[data-g="${nx.r}:${nx.i}"]` : '.bn.final');
   if (el) wrap.scrollTo({ left: (el.offsetLeft + el.offsetWidth / 2) * z - avail / 2, behavior: smooth ? 'smooth' : 'auto' });
 }
 
@@ -347,6 +347,7 @@ function hallView() {
       ${head('Arcképcsarnok', 'A Lánchíd Kupa bajnokai')}
       <div class="hall">${list.map((h, k) => portraitHTML(h, k, k === 0 && isFresh(h) ? 'pending' : '')).join('')}</div>
       <p class="ar-note">Minden bajnok ide kerül, aranykeretben, örök dicsőségben.</p>
+      ${cupTable()}
       ${orn}
     </section>`;
 }
@@ -405,20 +406,117 @@ async function burnLine(ov, el, dur) {
 }
 
 
-function cupsView() {
+// kupagyőzelmek kis táblázata a Csarnok alján
+function cupTable() {
   const rows = {};
-  for (const h of HALL) { rows[h.name] = rows[h.name] || { w: 0, f: 0 }; rows[h.name].w++; rows[h.name].f++; }
-  const sample = { Balázs: { w: 0, f: 1 }, Dani: { w: 0, f: 1 } };
-  for (const [k, v] of Object.entries(sample)) { rows[k] = rows[k] || { w: 0, f: 0 }; rows[k].f += v.f; }
+  for (const c of archive()) {
+    const f = c.games.find((g) => g.r === Math.log2(c.size) - 1);
+    for (const id of [f.a, f.b]) { const n = nameOf(id); rows[n] = rows[n] || { w: 0, f: 0 }; rows[n].f++; if (id === c.champion) rows[n].w++; }
+  }
   const list = Object.entries(rows).sort((a, b) => b[1].w - a[1].w || b[1].f - a[1].f);
+  if (!list.length) return '';
+  return `
+    <div class="section-ar">Kupavadászok</div>
+    <div class="cups">
+      <div class="cups-h"><span></span><span>Játékos</span><span>🏆</span><span>Döntő</span></div>
+      ${list.map(([n, v], i) => `<div class="cups-r"><span class="cn">${roman(i + 1)}.</span><span>${esc(n)}</span><b>${v.w}</b><span>${v.f}</span></div>`).join('')}
+    </div>`;
+}
+
+/* ---------------- Hírlap: a lezárt kupák archívuma, mindegyik egy különkiadás ---------------- */
+const ARCHIVE = [];   // { id, at, size, bronze, by, entries, games, champion }
+let seeded = false;
+// bemutató: a két régi kupát (Peti, Kata) végigjátsszuk, hogy legyen mit lapozni
+function archive() {
+  if (!seeded && state.players?.length) {
+    seeded = true;
+    for (const h of HALL.slice(0, 2)) {
+      const champ = state.players.find((p) => p.name === h.name)?.id; if (!champ) continue;
+      const others = state.players.filter((p) => p.active && p.id !== champ).map((p) => p.id).sort(() => Math.random() - 0.5);
+      ARCHIVE.push(simulate([champ, ...others.slice(0, h.size - 1)], h.size, champ, h.at));
+    }
+  }
+  return ARCHIVE;
+}
+function snapshot(at) {
+  return JSON.parse(JSON.stringify({ id: `k${ARCHIVE.length + 1}`, at, size: T.size, bronze: T.bronze, by: T.by, entries: T.entries, games: T.games, champion: T.champion }));
+}
+function simulate(entries, size, champ, at) {
+  const saved = JSON.parse(JSON.stringify(T));
+  Object.assign(T, { status: 'reg', size, bronze: true, by: entries[1], entries: [...entries], games: [], champion: null });
+  draw();
+  let g; let guard = 0;
+  while ((g = T.games.filter((x) => x.a && x.b && !x.w).sort((x, y) => (x.r === -1) - (y.r === -1) || x.r - y.r)[0]) && guard++ < 40) {
+    const aw = g.a === champ ? true : g.b === champ ? false : Math.random() < 0.5;
+    const lose = 4 + Math.floor(Math.random() * 7); const close = Math.random() < 0.25;
+    record(g, aw ? (close ? 12 : 11) : (close ? 10 : lose), aw ? (close ? 10 : lose) : (close ? 12 : 11));
+  }
+  const snap = snapshot(at);
+  Object.keys(T).forEach((k) => delete T[k]); Object.assign(T, saved);
+  return snap;
+}
+// egy lezárt kupán futtat valamit úgy, mintha az lenne az aktuális (az ágrajz-rajzoló a T-t olvassa)
+function withCup(c, fn) {
+  const saved = { ...T };
+  Object.assign(T, { size: c.size, bronze: c.bronze, games: c.games, champion: c.champion, status: 'done' });
+  try { return fn(); } finally { Object.keys(T).forEach((k) => delete T[k]); Object.assign(T, saved); }
+}
+// hírek a valódi eredményekből, kész sablonokkal
+function newsOf(c) {
+  const R = Math.log2(c.size); const fin = c.games.find((g) => g.r === R - 1); const loser = fin.w === fin.a ? fin.b : fin.a;
+  const played = c.games.filter((g) => g.a && g.b && g.w);
+  const rn = (r) => withCup(c, () => (r === -1 ? 'bronzmeccsen' : roundName(r).toLowerCase() + 'ben').replace('döntőben', 'döntőben').replace('fordulóben', 'fordulóban'));
+  const elo = (id) => playerById(id)?.elo || 1000;
+  const items = [];
+  const upset = played.filter((g) => g.r !== R - 1).map((g) => { const l = g.w === g.a ? g.b : g.a; return { g, l, d: elo(l) - elo(g.w) }; }).sort((x, y) => y.d - x.d)[0];
+  if (upset && upset.d > 0) items.push({ h: `Óriásölés! ${nameOf(upset.g.w)} jobbnak bizonyult ${nameOf(upset.l)} ellen`, t: `${upset.g.sa}:${upset.g.sb} a ${rn(upset.g.r)}, ${upset.d} ELO-pont hátrányból.` });
+  const tight = played.filter((g) => Math.abs(g.sa - g.sb) === 2 && Math.max(g.sa, g.sb) > 11)[0];
+  if (tight) items.push({ h: `Hajszálon múlt: ${nameOf(tight.a)} – ${nameOf(tight.b)} ${tight.sa}:${tight.sb}`, t: 'Hosszabbításban dőlt el.' });
+  const br = c.games.find((g) => g.r === -1 && g.w);
+  if (br) items.push({ h: `Bronzérem: ${nameOf(br.w)}`, t: `A bronzmeccsen ${br.sa}:${br.sb}.` });
+  return { head: `${nameOf(c.champion)} a Lánchíd Kupa bajnoka!`, deck: `A döntőben ${nameOf(fin.a)} – ${nameOf(fin.b)} ${fin.sa}:${fin.sb}. ${nameOf(loser)} ezüstérmes.`, items, played: played.length };
+}
+const editionNo = (c) => ARCHIVE.indexOf(c) + 1;
+let openCup = null; let showBridge = false;
+function heraldView() {
+  const list = [...archive()].reverse();
+  const c = list.find((x) => x.id === openCup);
+  if (c) return frontPage(c);
   return `
     <section class="ar">
-      ${head('Kupák', 'Ki emelte a legtöbbször a magasba?')}
-      <div class="cups">
-        <div class="cups-h"><span></span><span>Játékos</span><span>🏆</span><span>Döntő</span></div>
-        ${list.map(([n, v], i) => `<div class="cups-r"><span class="cn">${roman(i + 1)}.</span><span>${esc(n)}</span><b>${v.w}</b><span>${v.f}</span></div>`).join('')}
-      </div>
-      <p class="ar-note">Összesen ${HALL.length} Lánchíd Kupa zajlott eddig.</p>
+      ${head('Hírlap', 'A Lánchíd Kupák krónikája')}
+      ${list.length ? `<div class="hl-stack">${list.map((x, k) => { const n = newsOf(x); return `
+        <button type="button" class="hl-mini" data-cup="${x.id}" style="--r:${k % 2 ? 0.6 : -0.5}deg">
+          <span class="hl-mast">SZISZ Hírlap</span>
+          <span class="hl-sub"><span>${editionNo(x)}. különkiadás</span><span>${romanDate(x.at)}</span></span>
+          <b class="hl-head">${esc(n.head)}</b>
+          <span class="hl-deck">${esc(n.deck)}</span>
+          <span class="hl-go">Elolvasom ›</span>
+        </button>`; }).join('')}</div>`
+        : '<p class="ar-note">Még nem zajlott Lánchíd Kupa. Az első különkiadás a te kupád lehet!</p>'}
+      ${orn}
+    </section>`;
+}
+function frontPage(c) {
+  const n = newsOf(c); const a = artFor('done');
+  return `
+    <section class="ar">
+      <button type="button" class="hl-back" data-hl-back>‹ Összes kiadás</button>
+      <article class="hl-page">
+        <div class="hl-mast big">SZISZ Hírlap</div>
+        <div class="hl-sub"><span>${editionNo(c)}. különkiadás</span><span>${romanDate(c.at)}</span><span>Ára: egy labda</span></div>
+        <h2 class="hl-head big">${esc(n.head)}</h2>
+        <p class="hl-deck big">${esc(n.deck)}</p>
+        <div class="hl-body">
+          <figure class="hl-pic"><img src="${a.src}" alt=""><figcaption>A bajnok a kupával</figcaption></figure>
+          <div class="hl-col">
+            ${n.items.map((it) => `<div class="hl-item"><b>${esc(it.h)}</b><span>${esc(it.t)}</span></div>`).join('')}
+            <div class="hl-item"><b>Számokban</b><span>${c.size} nevező · ${n.played} mérkőzés · kiírta: ${esc(nameOf(c.by))}</span></div>
+          </div>
+        </div>
+        <button type="button" class="hl-bridge-btn" data-hl-bridge>${showBridge ? 'A híd elrejtése' : 'A teljes híd megtekintése ›'}</button>
+      </article>
+      ${showBridge ? withCup(c, () => bridgeHTML()) : ''}
       ${orn}
     </section>`;
 }
@@ -472,6 +570,7 @@ function goldDust(n = 70) {
   setTimeout(() => box.remove(), 6000);
 }
 const rerender = () => { $app.innerHTML = arenaView(); bindArena(); };
+const rerenderSub = (sub) => { $app.innerHTML = arenaView(sub); bindArena(sub); };
 
 /* ---------------- műveletek ---------------- */
 export function plusAction() {
@@ -574,7 +673,8 @@ function openRecord(g) {
 export function recordDemo(r, i, a, b) { const g = gameAt(r, i); if (!g) return; const fin = isFinal(g); const w = record(g, a, b); if (fin) celebrate(w); else afterRecord(g, w); }
 function celebrate(w) {
   curtain(`<div class="cu-title">A Lánchíd Kupa bajnoka</div><div class="cu-champ">${esc(nameOf(w))}</div>`, () => {
-    HALL.push({ name: nameOf(w), at: new Date().toISOString().slice(0, 10), size: T.size });
+    const at = new Date().toISOString().slice(0, 10);
+    HALL.push({ name: nameOf(w), at, size: T.size }); archive(); ARCHIVE.push(snapshot(at));
     rerender(); syncPlus(); goldDust();
   }, 1700);
 }
@@ -596,6 +696,9 @@ export function bindArena() {
   $app.querySelector('[data-ar-rec]')?.addEventListener('click', (e) => { const [r, i] = e.currentTarget.dataset.arRec.split(':').map(Number); openRecord(gameAt(r, i)); });
   $app.querySelector('[data-ar-bracket]')?.addEventListener('click', () => { $app.innerHTML = bracketView(); fitBridge(false); });
   if ($app.querySelector('.br-wrap')) requestAnimationFrame(() => fitBridge(false));
+  $app.querySelectorAll('[data-cup]').forEach((b) => b.addEventListener('click', () => { openCup = b.dataset.cup; showBridge = false; rerenderSub('hirlap'); window.scrollTo(0, 0); }));
+  $app.querySelector('[data-hl-back]')?.addEventListener('click', () => { openCup = null; rerenderSub('hirlap'); });
+  $app.querySelector('[data-hl-bridge]')?.addEventListener('click', () => { showBridge = !showBridge; rerenderSub('hirlap'); if (showBridge) setTimeout(() => $app.querySelector('.br-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80); });
   const fresh = $app.querySelector('.portrait.pending'); if (fresh) burnIn(fresh);
   const pl = $app.querySelector('.proc-left'); if (pl) pl.textContent = left(T.deadline);
 }
