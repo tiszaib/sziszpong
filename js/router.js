@@ -36,7 +36,7 @@ export function route() {
   else if (page === 'uj') { state.view = 'new'; renderNewMatch(); }
   else if (page === 'profil') { state.view = 'profile'; renderProfile(parts[1] || state.me.id); }
   else if (page === 'statok') { state.view = 'stats'; renderMyStats(); }
-  else if (page === 'bajnoksag') { state.view = 'arena'; renderArena(); }
+  else if (page === 'bajnoksag') { state.view = 'arena'; renderArena(parts[1]); }
   else if (page === 'achi') { state.view = 'achi'; renderAchievements(parts[1] || state.me.id); }
   else if (page === 'admin' && state.me.is_admin) { state.view = 'admin'; renderAdmin(); }
   else { state.view = 'singles'; renderRanking('singles'); }

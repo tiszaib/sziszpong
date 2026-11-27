@@ -1,5 +1,6 @@
 // SZISZpong · Bajnokság: külön "festmény" világ (Schoefft József Széchenyi-portréja alapján)
 import { $app } from './core.js';
+import { arenaView, bindArena } from './arena-views.js';
 
 /* A "nincs bajnokság" kép: Széchenyi kivágva (átlátszó háttérrel), egy nagy képkeretnek támaszkodva.
    Új kép esetén: cseréld le a fájlt, és a sign értékeit (százalékban, a képhez mérten) igazítsd a keret belsejéhez.
@@ -45,23 +46,8 @@ export function arenaSwitch(on, render, { instant = false } = {}) {
   setTimeout(() => { veil.remove(); busy = false; }, hide + 600);
 }
 
-export function renderArena() {
-  const a = EMPTY_ART; const s = a.sign;
-  $app.innerHTML = `
-    <section class="ar">
-      <header class="ar-head">
-        <div class="ar-orn" aria-hidden="true"><i></i>✦<i></i></div>
-        <h1 class="ar-title">Bajnokság</h1>
-        <p class="ar-sub">A KGY-terem nagy tornái</p>
-      </header>
-      <figure class="${a.framed ? 'ar-frame' : 'ar-stage'}">
-        <div class="ar-canvas" style="aspect-ratio:${a.ratio};--sx:${s.x}%;--sy:${s.y}%;--sw:${s.w}%;--sh:${s.h}%;--sr:${s.rot}deg;--fs:${s.size}cqw">
-          <img src="${a.src}" alt="Széchenyi István sportruhában egy nagy üres képkeretnek támaszkodik" decoding="async">
-          <div class="ar-sign ${a.placeholder ? 'ph' : ''}"><span>${a.text}</span></div>
-          ${a.placeholder ? '<small class="ar-ph">helyőrző kép</small>' : ''}
-        </div>
-      </figure>
-      <p class="ar-note">Ha kiírnak egy bajnokságot, itt jelenik meg a jelentkezés, a párosítás és az ágrajz.</p>
-      <div class="ar-orn small" aria-hidden="true"><i></i>❦<i></i></div>
-    </section>`;
+export function renderArena(sub) {
+  $app.innerHTML = arenaView(sub);
+  bindArena(sub);
+  document.querySelectorAll('#nav-arena [data-ar]').forEach((a) => a.classList.toggle('active', a.dataset.ar === (sub || 'kupa')));
 }
