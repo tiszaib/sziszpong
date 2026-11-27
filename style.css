@@ -773,14 +773,6 @@ body.arena .chip.active { background: var(--gold); color: #24180a; border-color:
 .proc-dl { font-size: 14px; color: #5a4a2a; margin-bottom: 12px; } .proc-dl b { color: #9b1b30; }
 .proc-slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .proc-slots.s4 { grid-template-columns: repeat(2, 1fr); }
-.medal { aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; padding: 6px; font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 700; font-size: 14px; line-height: 1.05;
-  color: rgba(90,63,12,.55); border: 2px dashed rgba(155,120,40,.5); background: rgba(255,250,235,.35); overflow: hidden; }
-.medal span { overflow-wrap: anywhere; }
-.medal.on { color: #2b1d0e; border: 0; background: radial-gradient(circle at 35% 30%, #fff3c4, #e2bd55 45%, #a3792a 80%); box-shadow: 0 3px 8px rgba(0,0,0,.3), inset 0 0 0 3px rgba(255,240,190,.6), inset 0 0 0 5px rgba(120,80,20,.5); }
-.medal.engrave { animation: medalIn .9s .35s cubic-bezier(.2,1.5,.4,1) both; }
-.medal.engrave span { animation: engrave 1s .6s ease both; }
-@keyframes medalIn { from { transform: scale(.3) rotate(-30deg); opacity: 0; } }
-@keyframes engrave { from { clip-path: inset(0 100% 0 0); filter: brightness(2); } to { clip-path: inset(0 0 0 0); } }
 .proc-count { margin-top: 12px; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 17px; font-weight: 700; color: #5a3f0c; }
 .seal { position: absolute; right: 14px; bottom: -18px; width: 62px; height: 62px; border-radius: 50%; display: grid; place-items: center;
   background: radial-gradient(circle at 35% 30%, #d0485e, #9b1b30 55%, #5e0e1c); box-shadow: 0 6px 14px rgba(0,0,0,.45), inset 0 0 0 4px rgba(0,0,0,.18), inset 0 0 0 7px rgba(255,255,255,.08);
@@ -793,31 +785,7 @@ body.arena .chip.active { background: var(--gold); color: #24180a; border-color:
   background: rgba(14,23,48,.7); border: 1px solid rgba(229,196,106,.5); box-shadow: 0 0 30px rgba(212,175,55,.15); }
 .br-next small { color: var(--gold); letter-spacing: 1.5px; text-transform: uppercase; font-size: 12px; font-weight: 700; }
 .br-next b { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 23px; } .br-next b i { color: var(--muted); font-size: 16px; padding: 0 4px; }
-.bridge { position: relative; max-width: 420px; margin: 4px auto 0; }
-.bridge-svg { width: 100%; display: block; filter: drop-shadow(0 8px 16px rgba(0,0,0,.5)); }
-.bridge .chain { stroke-dasharray: 3 2; }
-.lion { position: absolute; bottom: 20%; font-size: 26px; filter: sepia(1) saturate(1.6) hue-rotate(-8deg) brightness(.95) drop-shadow(0 2px 3px rgba(0,0,0,.6)); }
-.lion.l { left: -2px; transform: scaleX(-1); } .lion.r { right: -2px; }
-.br-final { position: absolute; left: 50%; top: 40%; transform: translate(-50%, -50%); width: 46%; }
-.br-final .br-label { color: #fff1bd; text-shadow: 0 1px 6px #000; }
 .br-label { font-family: 'Cormorant Garamond', Georgia, serif; font-variant: small-caps; letter-spacing: 1.5px; font-weight: 700; color: var(--gold); font-size: 16px; margin-bottom: 5px; }
-.br-tree { max-width: 420px; margin: 6px auto 0; display: grid; gap: 14px; }
-.br-round { position: relative; } .br-round.bronze { max-width: 220px; margin: 18px auto 0; }
-.br-row { display: grid; gap: 8px; grid-template-columns: repeat(2, 1fr); }
-.br-row.n1 { grid-template-columns: 1fr; } .br-row.n8 { grid-template-columns: repeat(2, 1fr); }
-.br-round::before { content: ''; position: absolute; left: 25%; right: 25%; top: -10px; height: 8px; border: 1.5px dashed rgba(229,196,106,.55); border-bottom: 0; border-radius: 6px 6px 0 0; }
-.mg { border-radius: 12px; padding: 6px 10px; text-align: left; background: linear-gradient(#18264a, #111c38); border: 1px solid rgba(229,196,106,.35); box-shadow: 0 6px 16px rgba(0,0,0,.35); }
-.mg.final { background: linear-gradient(#2a2412, #17120a); border: 2px solid #e5c46a; box-shadow: 0 0 26px rgba(229,196,106,.45); }
-.mg-p { display: flex; justify-content: space-between; gap: 6px; font-size: 14px; padding: 2px 0; }
-.mg-p span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .mg-p i { color: var(--muted); font-style: italic; }
-.mg-p.mw { color: #fff1bd; font-weight: 700; } .mg-p.mw b { color: var(--gold); } .mg-p.ml { color: rgba(185,173,142,.6); } .mg-p.ml span { text-decoration: line-through; text-decoration-color: rgba(185,173,142,.5); }
-.mg-p + .mg-p { border-top: 1px solid rgba(229,196,106,.18); }
-.mg.next { border-color: #f6dd8c; animation: glow 1.8s ease-in-out infinite; }
-@keyframes glow { 50% { box-shadow: 0 0 0 3px rgba(246,221,140,.25), 0 0 26px rgba(246,221,140,.45); } }
-.mg.drop { animation: drop .6s cubic-bezier(.2,1.4,.4,1) both; }
-@keyframes drop { from { opacity: 0; transform: translateY(-40px) scale(.8) rotate(-6deg); } }
-.mg.flash { animation: flash 1s ease; }
-@keyframes flash { 30% { box-shadow: 0 0 0 4px rgba(246,221,140,.6), 0 0 40px rgba(246,221,140,.7); transform: scale(1.04); } }
 
 /* vörös bársonyfüggöny */
 .curtain { position: fixed; left: 0; right: 0; bottom: 0; z-index: 60; pointer-events: all; overflow: hidden; }
@@ -849,14 +817,6 @@ body.arena .chip.active { background: var(--gold); color: #24180a; border-color:
 @keyframes dust { to { transform: translate(var(--dx), 105vh) scale(var(--s)) rotate(360deg); opacity: .2; } }
 
 /* Arcképcsarnok */
-.hall { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; max-width: 420px; margin: 0 auto; }
-.portrait { margin: 0; animation: procIn .7s both; }
-.pf { padding: 9px; background: linear-gradient(135deg, #6f5112, #f3d47e 22%, #a97c22 45%, #fbe9a8 60%, #8a6418 80%, #e8c260);
-  box-shadow: inset 0 0 0 2px #4d3609, inset 0 0 0 4px #edd38a, 0 14px 30px rgba(0,0,0,.55); border-radius: 3px; }
-.pc { aspect-ratio: 3 / 4; display: grid; place-items: center; background: linear-gradient(rgba(10,16,34,.35), rgba(10,16,34,.75)), url(img/felhok.jpg) center / cover; box-shadow: inset 0 0 30px rgba(0,0,0,.7); }
-.pc span { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 58px; font-weight: 700; color: #f3e9d2; text-shadow: 0 3px 14px rgba(0,0,0,.7); }
-.plate { margin: 8px auto 0; width: 88%; padding: 5px 6px; border-radius: 3px; background: linear-gradient(#d9b45a, #9c7424); color: #24180a; box-shadow: 0 3px 8px rgba(0,0,0,.4); }
-.plate b { display: block; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 18px; } .plate small { font-size: 11px; }
 
 /* Kupák */
 .cups { max-width: 420px; margin: 0 auto; border-radius: 14px; overflow: hidden; border: 1px solid rgba(229,196,106,.35); background: rgba(14,23,48,.65); }
@@ -871,4 +831,138 @@ body.arena .chip.active { background: var(--gold); color: #24180a; border-color:
 .rules li { margin-bottom: 8px; } .rules b { color: #7a1426; }
 .special { display: flex; gap: 12px; align-items: flex-start; max-width: 420px; margin: 18px auto 0; padding: 14px; text-align: left; border-radius: 14px; background: rgba(14,23,48,.7); border: 1px solid rgba(229,196,106,.4); }
 .special-ic { font-size: 28px; } .special b { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 21px; color: var(--gold); } .special p { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
-@media (prefers-reduced-motion: reduce) { #nav-arena .nav-item, .proc, .medal.engrave, .medal.engrave span, .seal.stamp, .mg.next, .mg.drop, .cu-card, .cu-champ, .dust { animation: none !important; } }
+@media (prefers-reduced-motion: reduce) { #nav-arena .nav-item, .proc, .coin.engrave *, .seal.stamp, .bn.next, .bn.drop, .ch-glow, .motes b, .bolt, .cu-card, .cu-champ, .dust { animation: none !important; } }
+
+/* ---------- Bajnokság v5: hangulat (aranypor + villám) ---------- */
+.motes, .bolt { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+.motes b { position: absolute; width: 4px; height: 4px; border-radius: 50%; opacity: 0;
+  background: radial-gradient(circle, #fff6cf, #e5c46a 45%, transparent 70%); box-shadow: 0 0 6px rgba(255,226,140,.7);
+  animation: mote var(--t) linear var(--d) infinite; }
+@keyframes mote { 0% { transform: translate(0, 0) scale(var(--s)); opacity: 0; } 15%, 80% { opacity: var(--o); } 100% { transform: translate(var(--dx), -45vh) scale(var(--s)); opacity: 0; } }
+.bolt { opacity: 0; background: radial-gradient(ellipse 60% 45% at var(--lx, 50%) 12%, rgba(215,228,255,.42), transparent 70%); }
+.bolt svg { position: absolute; left: 0; top: 0; width: 100%; height: 48vh; }
+.bolt polyline { fill: none; stroke: rgba(240,246,255,.85); stroke-width: 1.6; vector-effect: non-scaling-stroke; filter: drop-shadow(0 0 4px #cfe0ff); }
+.bolt.strike { animation: strike 1.3s ease-out; }
+@keyframes strike { 0% { opacity: 0; } 4% { opacity: .75; } 9% { opacity: .1; } 13% { opacity: .55; } 40% { opacity: .08; } 100% { opacity: 0; } }
+
+/* ---------- aranyérmék a kiáltványon ---------- */
+.coin-defs { position: absolute; }
+.proc-slots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 8px; }
+.proc-slots.s4 { grid-template-columns: repeat(2, 1fr); max-width: 220px; margin: 0 auto; }
+.coin { position: relative; aspect-ratio: 1; display: grid; place-items: center; border-radius: 50%; }
+.coin svg { position: absolute; inset: 0; width: 100%; height: 100%; filter: drop-shadow(0 3px 4px rgba(60,35,5,.45)); }
+.coin:not(.on) svg { filter: grayscale(.55) brightness(.78) opacity(.42); }
+.coin-name { position: relative; max-width: 66%; font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 700; line-height: 1; overflow-wrap: anywhere;
+  color: #4a320a; text-shadow: 0 1px 0 rgba(255,244,200,.8), 0 -1px 0 rgba(70,45,5,.45); }
+.coin:not(.on) .coin-name { font-style: italic; font-weight: 600; color: rgba(70,50,15,.55); text-shadow: 0 1px 0 rgba(255,250,230,.5); }
+.coin-tip, .coin-shine { position: absolute; pointer-events: none; opacity: 0; }
+.coin-tip { top: 50%; width: 7px; height: 7px; margin: -3px 0 0 -3px; border-radius: 50%; background: radial-gradient(circle, #fff, #ffe9a6 40%, transparent 70%); box-shadow: 0 0 10px 3px rgba(255,236,170,.9); }
+.coin-shine { inset: 0; border-radius: 50%; overflow: hidden; }
+.coin-shine::before { content: ''; position: absolute; top: -20%; bottom: -20%; width: 36%; left: -50%; transform: skewX(-20deg); background: linear-gradient(90deg, transparent, rgba(255,255,240,.85), transparent); }
+.coin.engrave svg { animation: coinIn .8s .3s cubic-bezier(.2,1.5,.4,1) both; }
+.coin.engrave .coin-name { animation: engrave 1.05s .95s linear both; }
+.coin.engrave .coin-tip { animation: tip 1.05s .95s linear both; }
+.coin.engrave .coin-shine { opacity: 1; } .coin.engrave .coin-shine::before { animation: shine .8s 2.15s ease-in-out both; }
+@keyframes coinIn { from { transform: scale(.2) rotateY(540deg); opacity: 0; } }
+@keyframes engrave { from { clip-path: inset(-20% 100% -20% 0); } to { clip-path: inset(-20% 0 -20% 0); } }
+@keyframes tip { 0% { left: 22%; opacity: 1; } 96% { left: 78%; opacity: 1; } 100% { left: 78%; opacity: 0; } }
+@keyframes shine { to { left: 120%; } }
+.chip-spark { position: absolute; left: var(--l); top: 50%; width: 3px; height: 3px; border-radius: 50%; background: #fff3c4; box-shadow: 0 0 4px #ffd65a; opacity: 0; pointer-events: none;
+  animation: chipSpark .5s ease-out both; }
+@keyframes chipSpark { 0% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)); } }
+
+/* ---------- Lánchíd: az ágak maguk a láncok ---------- */
+.br-wrap { position: relative; margin: 2px -16px 0; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 18px), transparent); }
+.br-wrap::-webkit-scrollbar { display: none; }
+.br-pan { position: relative; margin: 0 auto; }
+.br-svg { position: absolute; inset: 0; filter: drop-shadow(0 8px 14px rgba(0,0,0,.45)); }
+.br-svg .st { fill: url(#br-st); stroke: #4a4232; stroke-width: 1; }
+.br-svg .st2 { fill: #b8ab88; stroke: #4a4232; stroke-width: 1; }
+.br-svg .pil { stroke: rgba(255,250,230,.35); stroke-width: 2; fill: none; }
+.br-svg .waves path { fill: none; stroke: rgba(229,196,106,.13); stroke-width: 1.2; }
+.br-svg .susp { stroke: rgba(229,196,106,.42); stroke-width: 1; fill: none; }
+.br-svg .ch-base { fill: none; stroke: #2e2209; stroke-width: 6; stroke-linecap: round; }
+.br-svg .ch-link { fill: none; stroke: #8f6c27; stroke-width: 3.6; stroke-dasharray: 7 2.6; }
+.br-svg .ch-link.won { stroke: #f2d27a; }
+.br-svg .ch-glow { fill: none; stroke: #fff1bd; stroke-width: 2.4; stroke-linecap: round; filter: url(#br-glow); opacity: .85; stroke-dasharray: 1; stroke-dashoffset: 0; }
+.br-svg .ch-glow.ignite { animation: ignite 1.1s .25s cubic-bezier(.4,0,.2,1) both; }
+@keyframes ignite { from { stroke-dashoffset: 1; stroke-width: 5; } 70% { stroke-width: 4; } }
+.br-label { position: absolute; text-align: center; font-family: 'Cormorant Garamond', Georgia, serif; font-variant: small-caps; letter-spacing: 1.2px; font-weight: 700; color: var(--gold); font-size: 15px; white-space: nowrap; text-shadow: 0 1px 6px rgba(0,0,0,.8); }
+.br-label.fin { color: #fff1bd; font-size: 16px; letter-spacing: 2px; }
+.br-label.brz { color: #d9a46a; font-size: 14px; }
+.br-hint { margin: 2px 0 0; font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; color: var(--muted); font-size: 15px; }
+.bn { position: absolute; display: grid; align-content: center; padding: 3px 9px; border-radius: 9px; text-align: left; z-index: 1;
+  background: linear-gradient(#1d2d56, #0f1933); border: 1.5px solid #b08a3a;
+  box-shadow: inset 0 0 0 2px #0b1226, inset 0 0 0 3px rgba(229,196,106,.35), 0 6px 14px rgba(0,0,0,.5); }
+.bn.done { border-color: #e5c46a; }
+.bn.final { background: radial-gradient(ellipse at 50% 0%, #3a3016, #17120a 75%); border: 2px solid #f2d27a; padding: 4px 12px;
+  box-shadow: inset 0 0 0 3px #17120a, inset 0 0 0 4px rgba(246,221,140,.6), 0 0 28px rgba(229,196,106,.45), 0 8px 18px rgba(0,0,0,.6); }
+.bn.final .bn-p { font-size: 16px; }
+.bn.bronze { border-color: #b8743a; background: linear-gradient(#2a1f1a, #16100c); }
+.bn-p { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; font-size: 14px; line-height: 1.35; }
+.bn-p span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: opacity .3s; } .bn-p i { color: var(--muted); font-style: italic; }
+.bn-p + .bn-p { border-top: 1px solid rgba(229,196,106,.2); }
+.bn-p b { font-variant-numeric: tabular-nums; }
+.bn-p.mw { color: #fff1bd; font-weight: 700; } .bn-p.mw b { color: var(--gold); }
+.bn-p.ml { color: rgba(185,173,142,.6); } .bn-p.ml span { text-decoration: line-through; text-decoration-color: rgba(185,173,142,.5); }
+.bn.next { border-color: #f6dd8c; animation: glow 1.8s ease-in-out infinite; }
+@keyframes glow { 50% { box-shadow: inset 0 0 0 2px #0b1226, 0 0 0 3px rgba(246,221,140,.3), 0 0 26px rgba(246,221,140,.55); } }
+.bn.drop { animation: drop .6s cubic-bezier(.2,1.4,.4,1) both; }
+@keyframes drop { from { opacity: 0; transform: translateY(-30px) scale(.85); } }
+.bn.flash { animation: flash 1.1s ease; }
+@keyframes flash { 30% { box-shadow: 0 0 0 4px rgba(246,221,140,.6), 0 0 40px rgba(246,221,140,.8); transform: scale(1.06); } }
+.bn-p span.await { opacity: 0; } .bn-p span.landed { animation: landed .5s ease; }
+@keyframes landed { 0% { color: #fff; text-shadow: 0 0 10px #ffe9a6; } }
+.fly-card { position: fixed; z-index: 75; padding: 6px 12px; border-radius: 8px; pointer-events: none; transform-origin: top left;
+  background: linear-gradient(#f7ecd0, #e2cfa1); color: #2b1d0e; font-family: 'Cormorant Garamond', Georgia, serif; font-weight: 700; font-size: 18px; box-shadow: 0 8px 18px rgba(0,0,0,.5); white-space: nowrap; }
+
+/* ---------- Arcképcsarnok: aranykeret, réztábla ---------- */
+.hall { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px 16px; max-width: 420px; margin: 0 auto; }
+.portrait { margin: 0; animation: procIn .7s both; }
+.portrait.pending { visibility: hidden; }
+.portrait.landed .pf { animation: settle .7s ease; }
+@keyframes settle { 30% { box-shadow: inset 0 0 0 2px #4d3609, 0 0 0 4px rgba(246,221,140,.5), 0 0 40px rgba(246,221,140,.6); } }
+.pf { position: relative; padding: 12px; border-radius: 2px;
+  background: linear-gradient(135deg, #5e430d, #f3d47e 16%, #a97c22 32%, #fbe9a8 48%, #8a6418 64%, #e8c260 82%, #6f5112);
+  box-shadow: inset 0 0 0 1px #3b2a08, inset 0 0 0 3px #f3d47e, inset 0 0 0 4px #6b4a10, inset 0 0 0 9px rgba(160,120,40,.35), inset 0 0 0 10px #4d3609, 0 16px 32px rgba(0,0,0,.6); }
+.pf::before { content: ''; position: absolute; inset: 5px; border: 1.6px dotted rgba(255,240,190,.75); pointer-events: none; }
+.pf::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 6px 6px, #fff3c4 0 2px, transparent 3px), radial-gradient(circle at calc(100% - 6px) 6px, #fff3c4 0 2px, transparent 3px),
+    radial-gradient(circle at 6px calc(100% - 6px), #fff3c4 0 2px, transparent 3px), radial-gradient(circle at calc(100% - 6px) calc(100% - 6px), #fff3c4 0 2px, transparent 3px); }
+.pc { aspect-ratio: 3 / 4; display: grid; place-items: center; background: #1a1206; box-shadow: inset 0 0 0 2px #2b1d07, inset 0 0 24px rgba(0,0,0,.8); }
+.cameo { width: 78%; height: 84%; border-radius: 50%; display: grid; place-items: center; position: relative;
+  background: linear-gradient(rgba(10,16,34,.25), rgba(10,16,34,.7)), url(img/felhok.jpg) 30% center / cover;
+  box-shadow: 0 0 0 3px #b8862b, 0 0 0 4px #3b2a08, 0 0 0 6px rgba(246,221,140,.5), inset 0 0 26px rgba(0,0,0,.75); }
+.cameo span { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 54px; font-weight: 700; line-height: 1; color: transparent;
+  background: linear-gradient(180deg, #fff1bd, #e2bd55 50%, #a3792a); -webkit-background-clip: text; background-clip: text; filter: drop-shadow(0 3px 8px rgba(0,0,0,.7)); }
+.plate { position: relative; margin: 10px auto 0; width: 92%; padding: 6px 16px 5px; border-radius: 4px; text-align: center;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.07) 0 1px, rgba(0,0,0,.05) 1px 3px), linear-gradient(180deg, #f6df98, #cfa94f 42%, #a8802c 58%, #dcbc68);
+  box-shadow: inset 0 1px 0 rgba(255,252,225,.95), inset 0 -2px 0 rgba(90,60,10,.6), inset 0 0 0 1px rgba(90,60,10,.55), 0 4px 10px rgba(0,0,0,.55); }
+.plate::before { content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(circle at 8px 50%, #fff3c4 0 1.2px, #8a6418 1.8px 3px, #4d3609 3.2px, transparent 3.8px), radial-gradient(circle at calc(100% - 8px) 50%, #fff3c4 0 1.2px, #8a6418 1.8px 3px, #4d3609 3.2px, transparent 3.8px); }
+.bt { display: grid; justify-content: center; position: relative; color: #3a270a; text-shadow: 0 1px 0 rgba(255,248,215,.75), 0 -1px 0 rgba(60,38,5,.35); }
+b.bt { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 19px; line-height: 1.15; } small.bt { font-size: 11px; font-weight: 600; letter-spacing: .3px; }
+
+/* új bajnok: a név tüzesen beleég, majd leszáll a helyére */
+.burn { position: fixed; inset: 0; z-index: 80; pointer-events: all; }
+.burn-bg { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 55%, rgba(40,22,8,.7), rgba(5,8,18,.9)); backdrop-filter: blur(3px); animation: fadeIn .6s both; transition: opacity .9s; }
+.burn-title { position: absolute; left: 0; right: 0; top: 76px; text-align: center; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 24px; font-weight: 700; letter-spacing: 2px; color: #fff1bd; text-shadow: 0 2px 12px #000; animation: fadeIn .8s .2s both; transition: opacity .5s; }
+@keyframes fadeIn { from { opacity: 0; } }
+.burn.land .burn-bg, .burn.land .burn-title { opacity: 0; }
+.portrait.big { position: fixed; transform: scale(var(--k)); animation: bigIn .9s cubic-bezier(.2,.9,.3,1.1) both; }
+@keyframes bigIn { from { opacity: 0; transform: scale(calc(var(--k) * .6)) translateY(40px); } }
+.burnt { display: grid; width: fit-content; margin: 0 auto; } .burnt > * { grid-area: 1 / 1; }
+.burnt .cold, .burnt .hot { clip-path: inset(-30% 100% -30% 0); }
+.burnt .hot { color: #fff6d0; text-shadow: 0 0 2px #ffd060, 0 0 6px #ff9a20, 0 0 14px #ff5a00, 0 0 26px #ff3000; transition: opacity 1.3s ease, color 1.3s ease; }
+.burn.cool .burnt .hot { opacity: 0; color: #ff8a30; }
+.burnt .edge { position: absolute; top: -10%; bottom: -10%; width: 6px; margin-left: -3px; border-radius: 50%; opacity: 0;
+  background: radial-gradient(ellipse, #fff 0, #ffd060 30%, #ff6a00 60%, transparent 75%); box-shadow: 0 0 12px 4px rgba(255,120,20,.8); }
+.hot-plate { transition: box-shadow 1.2s; box-shadow: inset 0 1px 0 rgba(255,252,225,.95), inset 0 -2px 0 rgba(90,60,10,.6), 0 0 22px rgba(255,120,30,.55), 0 4px 10px rgba(0,0,0,.55); }
+.burn.cool .hot-plate { box-shadow: inset 0 1px 0 rgba(255,252,225,.95), inset 0 -2px 0 rgba(90,60,10,.6), inset 0 0 0 1px rgba(90,60,10,.55), 0 4px 10px rgba(0,0,0,.55); }
+.ember { position: fixed; z-index: 81; width: 3px; height: 3px; border-radius: 50%; background: #ffd27a; box-shadow: 0 0 6px 1px #ff7a10; pointer-events: none; animation: ember var(--t) ease-out both; }
+@keyframes ember { to { transform: translate(var(--dx), var(--dy)); opacity: 0; background: #ff4a00; } }
+.smoke { position: fixed; z-index: 81; width: 22px; height: 22px; border-radius: 50%; pointer-events: none; background: radial-gradient(circle, rgba(200,190,170,.35), transparent 70%); filter: blur(3px); animation: smoke 2s ease-out both; }
+@keyframes smoke { from { opacity: .9; transform: scale(.5); } to { opacity: 0; transform: translate(var(--dx), -70px) scale(2.4); } }
+@media (prefers-reduced-motion: reduce) { .portrait.big, .burn-bg { animation: none !important; } }
+.bn-p.bye { opacity: .55; }

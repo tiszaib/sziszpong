@@ -15,6 +15,13 @@ export const EMPTY_ART = {
   text: 'Jelenleg<br>nincs<br>bajnokság',
 };
 
+/* Változó Széchenyik: minden állapotnak saját képe lehet, ugyanebben a formában (src, ratio, sign).
+   Ha egy állapothoz még nincs kép (null), a fenti "nincs bajnokság" kép ugrik be helyette.
+   reg = jelentkezés (toboroz), running = zajlik (játszik), done = vége (kupát emel).
+   Később a témás kupák (karácsony, majális…) a saját képeiket a téma-csomagból adják. */
+export const ARTS = { none: EMPTY_ART, reg: null, running: null, done: null };
+export const artFor = (key) => ARTS[key] || ARTS.none;
+
 const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 const THEME = { on: '#0e1730', off: '#0b0b12' };
 
@@ -24,6 +31,35 @@ function setTheme(on) {
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', on ? THEME.on : THEME.off);
   const btn = document.getElementById('arena-btn');
   if (btn) btn.setAttribute('href', on ? '#/' : '#/bajnoksag');
+  ambience(on);
+}
+
+/* Hangulat: lassan szálló aranyporszemek a felhők előtt, és ritkán egy halk villám a viharos égen */
+let boltTimer = 0;
+function ambience(on) {
+  const sky = document.querySelector('.sky'); if (!sky) return;
+  clearTimeout(boltTimer);
+  if (!on || reduced()) return;
+  if (!sky.querySelector('.motes')) {
+    const m = document.createElement('div'); m.className = 'motes';
+    for (let i = 0; i < 26; i++) {
+      const b = document.createElement('b'); const r = Math.random;
+      b.style.cssText = `left:${(r() * 100).toFixed(1)}%;top:${(25 + r() * 75).toFixed(1)}%;--t:${(14 + r() * 16).toFixed(1)}s;--d:-${(r() * 30).toFixed(1)}s;--dx:${(r() * 80 - 40).toFixed(0)}px;--o:${(0.35 + r() * 0.55).toFixed(2)};--s:${(0.5 + r() * 1.1).toFixed(2)}`;
+      m.appendChild(b);
+    }
+    const bolt = document.createElement('div'); bolt.className = 'bolt';
+    sky.append(m, bolt);
+  }
+  const next = () => { boltTimer = setTimeout(() => { strike(); next(); }, 14000 + Math.random() * 18000); };
+  next();
+}
+export function strike() {
+  const bolt = document.querySelector('.sky .bolt'); if (!bolt || !document.documentElement.classList.contains('arena')) return;
+  const x = 10 + Math.random() * 80; let y = 0; let px = x * 4; const pts = [`${px.toFixed(0)},0`];
+  while (y < 180) { y += 14 + Math.random() * 22; px += Math.random() * 44 - 22; pts.push(`${px.toFixed(0)},${y.toFixed(0)}`); }
+  bolt.style.setProperty('--lx', x + '%');
+  bolt.innerHTML = `<svg viewBox="0 0 400 400" preserveAspectRatio="none"><polyline points="${pts.join(' ')}"/></svg>`;
+  bolt.classList.remove('strike'); void bolt.offsetWidth; bolt.classList.add('strike');
 }
 
 // Átváltás: a SZISZpong felirat megfordul (hátoldalán a "fancy" változat),
