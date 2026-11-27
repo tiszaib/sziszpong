@@ -561,7 +561,7 @@ const TPL = {
       ['{W} a dobogó harmadik fokán', 'A bronzmeccs: {S}.'],
       ['A vigaszág győztese: {W}', '{S} a bronzmeccsen, {L} negyedik lett.'],
       ['Bronz is fém!', '{W} – {L} {S}. Nem arany, de a vitrinben ez is csillog.'],
-      ['Aurafarmolás a dobogón: {W}', 'Kupa nem lett, de {S} után az aura megvan. {W} a terem legmenőbb harmadikja.'],
+      ['Dobogós lett: {W}', 'A bronzmeccsen {S}. A KGY-terem legjobb hármában a helye, és ezt most már mindenki tudja.'],
     ],
     marathon: [
       ['A kupa leghosszabb meccse: {A} – {B} {S}', 'Összesen {P} pont, ennél többet senki sem játszott.'],
