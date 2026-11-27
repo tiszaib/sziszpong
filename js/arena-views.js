@@ -448,7 +448,7 @@ function simulate(entries, size, champ, at) {
   let g; let guard = 0;
   while ((g = T.games.filter((x) => x.a && x.b && !x.w).sort((x, y) => (x.r === -1) - (y.r === -1) || x.r - y.r)[0]) && guard++ < 40) {
     const aw = g.a === champ ? true : g.b === champ ? false : Math.random() < 0.5;
-    const lose = 4 + Math.floor(Math.random() * 7); const close = Math.random() < 0.25;
+    const lose = 3 + Math.floor(Math.random() * 7); const close = Math.random() < 0.25;
     record(g, aw ? (close ? 12 : 11) : (close ? 10 : lose), aw ? (close ? 10 : lose) : (close ? 12 : 11));
   }
   const snap = snapshot(at);
@@ -461,20 +461,162 @@ function withCup(c, fn) {
   Object.assign(T, { size: c.size, bronze: c.bronze, games: c.games, champion: c.champion, status: 'done' });
   try { return fn(); } finally { Object.keys(T).forEach((k) => delete T[k]); Object.assign(T, saved); }
 }
-// hírek a valódi eredményekből, kész sablonokkal
+/* ---------------- Hírmotor: helyzetek felismerése + sok sablon ---------------- */
+// Minden helyzethez több megfogalmazás tartozik; a kupa azonosítójából kevert "véletlen" választ,
+// így ugyanaz a kupa mindig ugyanazt az újságot kapja, de két kupa ritkán szól ugyanúgy.
+// A nevek mindig ragozatlanul állnak (így nem lesz „Kata-t” típusú hiba).
+const hashStr = (s) => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
+function picker(seed) {
+  let a = hashStr(seed);
+  const rnd = () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  return (list) => list[Math.floor(rnd() * list.length)];
+}
+const fill = (t, v) => t.replace(/\b(a|A) \{(\w+)\}\./g, (m, a, k) => `${artOf(v[k], a)} {${k}}.`).replace(/\{(\w+)\}/g, (_, k) => v[k] ?? '');
+// névelő számok elé: „az 5.”, „a 3.”
+const artOf = (n, a) => { n = +n; const az = n === 1 || n === 5 || (n >= 50 && n < 60); return (a === 'A' ? 'A' : 'a') + (az ? 'z' : ''); };
+const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+
+const TPL = {
+  head: {
+    normal: ['{W} a Lánchíd Kupa bajnoka!', '{W} elvitte a kupát!', 'Új név a kupán: {W}!', '{W} felért a híd tetejére!', 'Éljen {W}, a bajnok!', '{W} emelte magasba a serleget!'],
+    repeat: ['Ismét {W}!', '{W} megvédte a címét!', 'A trón marad: {W} újra bajnok!', 'Nincs új a nap alatt: megint {W}!'],
+    first: ['{W} első kupagyőzelme!', 'Megszületett egy bajnok: {W}!', '{W} először emelhette a magasba a kupát!'],
+    dynasty: ['{W}-korszak a KGY-teremben?', 'Megállíthatatlan: {W} {N}. kupája!', 'Dinasztia születik: {W} immár {N}-szoros bajnok!'],
+    underdog: ['Senki sem számított rá: {W} a bajnok!', 'Hamupipőke-történet: {W} nyert!', 'Borult a papírforma: {W} a bajnok!', 'A sötét ló befutott: {W}!'],
+    favourite: ['A papírforma érvényesült: {W} a bajnok!', 'Nem volt meglepetés: {W} nyert!', 'A legerősebb jutott fel a csúcsra: {W}!'],
+    organizer: ['A kiíró maga vitte el: {W}!', 'Kiírta, megnyerte: {W}!', 'Házigazda-győzelem: {W} a bajnok!'],
+  },
+  deck: {
+    close: ['A döntőben {A} – {B} {S}, hosszabbításban dőlt el. {L} ezüstérmes.', 'Drámai döntő: {A} – {B} {S}. {L} karnyújtásnyira volt.', 'Az utolsó labdáig izgalmas volt: {A} – {B} {S}.'],
+    blowout: ['Egyoldalú döntő: {A} – {B} {S}. {L} ezüstérmes.', 'Nem volt kérdés: {A} – {B} {S} a döntőben.', 'Fölényes fináléban {A} – {B} {S}.'],
+    normal: ['A döntőben {A} – {B} {S}. {L} ezüstérmes.', 'A finálé: {A} – {B} {S}. Ezüstérem: {L}.', '{A} – {B} {S} a döntőben. Gratulálunk mindkettőjüknek!'],
+  },
+  items: {
+    upset: [
+      ['Óriásölés! {W} jobbnak bizonyult {L} ellen', '{S} {R}, {D} ELO-pont hátrányból.'],
+      ['Dávid és Góliát: {W} – {L} {S}', '{D} ELO-pont különbség sem számított {R}.'],
+      ['Meglepetés {R}: {W} továbbjutott', 'A papírforma {L} mellett szólt ({D} ELO-ponttal), mégis {S} lett a vége.'],
+      ['Borult a papírforma {R}', '{W} – {L} {S}, pedig {D} ELO-pont volt köztük.'],
+    ],
+    tight: [
+      ['Hajszálon múlt: {A} – {B} {S}', 'Hosszabbításban dőlt el.'],
+      ['Idegek harca: {A} – {B} {S}', 'Az utolsó labdákon múlt.'],
+      ['Körömrágós meccs {R}', '{A} – {B} {S}, a hosszabbítás döntött.'],
+      ['Ezt nem lehetett szorosabban: {A} – {B} {S}', 'Két pont döntött a hosszabbításban.'],
+    ],
+    bagel: [
+      ['Nullás! {W} – {L} {S}', 'Berceli bácsi büszke lenne.'],
+      ['Pont nélkül búcsúzott: {L}', '{W} egyetlen pontot sem engedett, {S}.'],
+    ],
+    blowout: [
+      ['Lemosta az asztalról: {W} – {L} {S}', 'Rövid volt és fájdalmas.'],
+      ['Villámgyors győzelem: {W} – {L} {S}', '{R} ez volt a legsimább meccs.'],
+      ['Esélye sem volt: {L}', '{W} – {L} {S} {R}.'],
+    ],
+    defenderOut: [
+      ['Elbukott a címvédő: {C}', 'A hóhér: {K}, {S} {R}.'],
+      ['Új király kell: kiesett {C}', '{K} állta útját, {S} {R}.'],
+      ['Leszállt a trónról {C}', '{R} {K} búcsúztatta, {S}.'],
+    ],
+    defenderFinal: [
+      ['A címvédő {C} a döntőig menetelt', 'Egy lépés hiányzott a duplázáshoz.'],
+      ['{C} közel volt a duplához', 'A döntőben akadt meg.'],
+    ],
+    rematch: [
+      ['Visszavágó a döntőben: {A} – {B}', 'Ugyanez a páros vívta a {N}. kupa döntőjét is.'],
+      ['Ismerős döntő: {A} és {B} ismét', 'A {N}. kupa fináléja ismétlődött meg.'],
+    ],
+    silverAgain: [
+      ['Örök második? {L} újra ezüstérmes', 'Már a {N}. döntője, amit elveszített.'],
+      ['{L} ismét a dobogó második fokán', 'Egyszer eljön a nagy nap.'],
+    ],
+    dominant: [
+      ['Fölényes menetelés: {W}', 'Az egész kupán mindössze {P} pontot engedett.'],
+      ['{W} szinte hibátlan volt', 'Meccsenként átlag {A} pontot adott le.'],
+    ],
+    debut: [
+      ['Berobbant az újonc: {N}', 'Első kupáján rögtön {R} jutott.'],
+      ['Új arc, nagy menetelés: {N}', 'Első Lánchíd Kupáján {R} jutott.'],
+    ],
+    organizer: [
+      ['A kiíró, {N}, {R} jutott', 'Kiírni és játszani is tud.'],
+      ['Házigazda: {N}', 'A kupa kiírója {R} jutott.'],
+    ],
+    organizerOut: [
+      ['A házigazda korán búcsúzott', 'A kiíró, {N}, már {R} kiesett. De a kupát neki köszönhetjük!'],
+      ['Kiírta, de nem neki termett babér', '{N} {R} kiesett. Köszönjük a szervezést!'],
+    ],
+    bronze: [
+      ['Bronzérem: {W}', 'A bronzmeccsen {S}.'],
+      ['{W} a dobogó harmadik fokán', 'A bronzmeccs: {S}.'],
+      ['A vigaszág győztese: {W}', '{S} a bronzmeccsen, {L} negyedik lett.'],
+    ],
+    marathon: [
+      ['A kupa leghosszabb meccse: {A} – {B} {S}', 'Összesen {P} pont, ennél többet senki sem játszott.'],
+    ],
+    numbers: [
+      ['Számokban', '{N} nevező · {M} mérkőzés · {P} pont · kiírta: {O}'],
+      ['A kupa mérlege', '{M} meccs, összesen {P} pont, {N} versenyzővel. Kiírta: {O}.'],
+    ],
+  },
+};
+const stageTo = (r, R) => { const k = R - 1 - r; return k === 0 ? 'a döntőbe' : k === 1 ? 'az elődöntőbe' : k === 2 ? 'a negyeddöntőbe' : 'a második körbe'; };
+const stageIn = (r, R) => { if (r === -1) return 'a bronzmeccsen'; const k = R - 1 - r; return k === 0 ? 'a döntőben' : k === 1 ? 'az elődöntőben' : k === 2 ? 'a negyeddöntőben' : 'az első körben'; };
 function newsOf(c) {
-  const R = Math.log2(c.size); const fin = c.games.find((g) => g.r === R - 1); const loser = fin.w === fin.a ? fin.b : fin.a;
+  const pick = picker(c.id + c.at);
+  const R = Math.log2(c.size); const fin = c.games.find((g) => g.r === R - 1); const W = c.champion; const L = fin.w === fin.a ? fin.b : fin.a;
+  const nm = nameOf; const sc = (g) => `${g.sa}:${g.sb}`;
+  const scW = (g) => (g.w === g.a ? `${g.sa}:${g.sb}` : `${g.sb}:${g.sa}`);   // a győztes pontja elöl
   const played = c.games.filter((g) => g.a && g.b && g.w);
-  const rn = (r) => withCup(c, () => (r === -1 ? 'bronzmeccsen' : roundName(r).toLowerCase() + 'ben').replace('döntőben', 'döntőben').replace('fordulóben', 'fordulóban'));
   const elo = (id) => playerById(id)?.elo || 1000;
-  const items = [];
-  const upset = played.filter((g) => g.r !== R - 1).map((g) => { const l = g.w === g.a ? g.b : g.a; return { g, l, d: elo(l) - elo(g.w) }; }).sort((x, y) => y.d - x.d)[0];
-  if (upset && upset.d > 0) items.push({ h: `Óriásölés! ${nameOf(upset.g.w)} jobbnak bizonyult ${nameOf(upset.l)} ellen`, t: `${upset.g.sa}:${upset.g.sb} a ${rn(upset.g.r)}, ${upset.d} ELO-pont hátrányból.` });
-  const tight = played.filter((g) => Math.abs(g.sa - g.sb) === 2 && Math.max(g.sa, g.sb) > 11)[0];
-  if (tight) items.push({ h: `Hajszálon múlt: ${nameOf(tight.a)} – ${nameOf(tight.b)} ${tight.sa}:${tight.sb}`, t: 'Hosszabbításban dőlt el.' });
+  const prev = ARCHIVE.slice(0, ARCHIVE.indexOf(c));
+  const prevChamp = prev[prev.length - 1]?.champion;
+  const titles = prev.filter((x) => x.champion === W).length + 1;
+  const loserOf = (g) => (g.w === g.a ? g.b : g.a);
+  const lostAt = (id) => played.find((g) => loserOf(g) === id && g.r >= 0);
+  // főcím
+  const byElo = [...c.entries].sort((a, b) => elo(b) - elo(a));
+  const seedPos = byElo.indexOf(W);
+  let hk = 'normal';
+  if (titles >= 3) hk = 'dynasty'; else if (prevChamp === W) hk = 'repeat'; else if (seedPos >= Math.ceil(c.entries.length / 2)) hk = 'underdog';
+  else if (titles === 1 && prev.length && pick([0, 1])) hk = 'first'; else if (seedPos === 0 && pick([0, 1])) hk = 'favourite'; else if (W === c.by && pick([0, 1])) hk = 'organizer';
+  const head = fill(pick(TPL.head[hk]), { W: nm(W), N: titles });
+  const fd = Math.abs(fin.sa - fin.sb);
+  const deck = fill(pick(TPL.deck[Math.max(fin.sa, fin.sb) > 11 ? 'close' : fd >= 7 ? 'blowout' : 'normal']), { A: nm(fin.a), B: nm(fin.b), S: sc(fin), L: nm(L) });
+  // hírek: minden felismert helyzet egy jelölt, fontossági sorrendben; a végén legfeljebb 5 kerül be
+  const cand = [];
+  const used = new Set();
+  const add = (key, prio, v, g) => { if (g && used.has(g)) return; if (g) used.add(g); const [h, t] = pick(TPL.items[key]); cand.push({ prio, h: cap(fill(h, v)), t: cap(fill(t, v)) }); };
+  const ups = played.filter((g) => g.r !== R - 1).map((g) => ({ g, d: elo(loserOf(g)) - elo(g.w) })).sort((x, y) => y.d - x.d)[0];
+  if (prevChamp && prevChamp !== W && c.entries.includes(prevChamp)) {
+    const g = lostAt(prevChamp);
+    if (g && g.r === R - 1) add('defenderFinal', 88, { C: nm(prevChamp) });
+    else if (g) add('defenderOut', 95, { C: nm(prevChamp), K: nm(g.w), S: scW(g), R: stageIn(g.r, R) }, g);
+  }
+  if (ups && ups.d >= 25) add('upset', 90 + Math.min(ups.d / 10, 9), { W: nm(ups.g.w), L: nm(loserOf(ups.g)), S: scW(ups.g), D: ups.d, R: stageIn(ups.g.r, R) }, ups.g);
+  const prevFinal = prev.map((x, i) => ({ x, i, f: x.games.find((g) => g.r === Math.log2(x.size) - 1) })).reverse().find(({ f }) => f && [f.a, f.b].sort().join() === [fin.a, fin.b].sort().join());
+  if (prevFinal) add('rematch', 85, { A: nm(fin.a), B: nm(fin.b), N: prevFinal.i + 1 });
+  const silver = prev.filter((x) => { const f = x.games.find((g) => g.r === Math.log2(x.size) - 1); return f && f.w && loserOf(f) === L; }).length + 1;
+  if (silver >= 2) add('silverAgain', 80, { L: nm(L), N: silver });
+  const bagel = played.find((g) => Math.min(g.sa, g.sb) === 0);
+  if (bagel) add('bagel', 84, { W: nm(bagel.w), L: nm(loserOf(bagel)), S: scW(bagel) });
+  else { const bl = played.filter((g) => Math.min(g.sa, g.sb) <= 3).sort((x, y) => Math.min(x.sa, x.sb) - Math.min(y.sa, y.sb))[0]; if (bl) add('blowout', 60, { W: nm(bl.w), L: nm(loserOf(bl)), S: scW(bl), R: stageIn(bl.r, R) }); }
+  const tight = played.filter((g) => Math.max(g.sa, g.sb) > 11 && g.r !== -1).sort((x, y) => Math.max(y.sa, y.sb) - Math.max(x.sa, x.sb))[0];
+  if (tight && tight !== fin) add('tight', 70, { A: nm(tight.a), B: nm(tight.b), S: sc(tight), R: stageIn(tight.r, R) });
+  const wg = played.filter((g) => g.w === W && g.r >= 0); const conceded = wg.reduce((s, g) => s + (g.a === W ? g.sb : g.sa), 0);
+  if (wg.length >= 2 && conceded / wg.length <= 6) add('dominant', 75, { W: nm(W), P: conceded, A: (conceded / wg.length).toFixed(1).replace('.', ',') });
+  const newbies = c.entries.filter((id) => !prev.some((x) => x.entries.includes(id)) && id !== W && id !== L);
+  const deb = newbies.map((id) => { const g = lostAt(id); return { id, r: g ? g.r : R }; }).filter((x) => prev.length && x.r >= R - 2).sort((a, b) => b.r - a.r)[0];
+  if (deb) add('debut', 65, { N: nm(deb.id), R: stageTo(deb.r, R) });
+  if (c.by && c.by !== W && c.by !== L) { const g = lostAt(c.by); if (g) add(g.r <= R - 3 ? 'organizerOut' : 'organizer', 40, { N: nm(c.by), R: g.r <= R - 3 ? stageIn(g.r, R) : stageTo(g.r, R) }); }
   const br = c.games.find((g) => g.r === -1 && g.w);
-  if (br) items.push({ h: `Bronzérem: ${nameOf(br.w)}`, t: `A bronzmeccsen ${br.sa}:${br.sb}.` });
-  return { head: `${nameOf(c.champion)} a Lánchíd Kupa bajnoka!`, deck: `A döntőben ${nameOf(fin.a)} – ${nameOf(fin.b)} ${fin.sa}:${fin.sb}. ${nameOf(loser)} ezüstérmes.`, items, played: played.length };
+  if (br) add('bronze', 72, { W: nm(br.w), L: nm(loserOf(br)), S: scW(br) });
+  const pts = (g) => g.sa + g.sb; const mar = [...played].sort((x, y) => pts(y) - pts(x))[0];
+  if (mar && pts(mar) >= 24 && mar !== tight) add('marathon', 50, { A: nm(mar.a), B: nm(mar.b), S: sc(mar), P: pts(mar) });
+  const items = cand.sort((a, b) => b.prio - a.prio).slice(0, 5);
+  const [nh, nt] = pick(TPL.items.numbers);
+  items.push({ h: nh, t: fill(nt, { N: c.entries.length, M: played.length, P: played.reduce((s, g) => s + pts(g), 0), O: nm(c.by) }) });
+  return { head, deck, items, played: played.length };
 }
 const editionNo = (c) => ARCHIVE.indexOf(c) + 1;
 let openCup = null; let showBridge = false;
@@ -511,7 +653,6 @@ function frontPage(c) {
           <figure class="hl-pic"><img src="${a.src}" alt=""><figcaption>A bajnok a kupával</figcaption></figure>
           <div class="hl-col">
             ${n.items.map((it) => `<div class="hl-item"><b>${esc(it.h)}</b><span>${esc(it.t)}</span></div>`).join('')}
-            <div class="hl-item"><b>Számokban</b><span>${c.size} nevező · ${n.played} mérkőzés · kiírta: ${esc(nameOf(c.by))}</span></div>
           </div>
         </div>
         <button type="button" class="hl-bridge-btn" data-hl-bridge>${showBridge ? 'A híd elrejtése' : 'A teljes híd megtekintése ›'}</button>
@@ -705,4 +846,4 @@ export function bindArena() {
 
 // csak az előnézethez: a videó-szkript ezekkel tölti fel a kupát
 document.getElementById('ar-plus')?.addEventListener('click', () => plusAction());
-window.__arenaDemo = { T, join, startDraw, recordDemo, plusAction, strike, ids: () => state.players.filter((p) => p.active).map((p) => p.id) };
+window.__arenaDemo = { T, join, startDraw, recordDemo, plusAction, strike, newsTest: (n = 10) => { archive(); const out = []; for (let k = 0; k < n; k++) { const ids = state.players.filter((p) => p.active).map((p) => p.id).sort(() => Math.random() - 0.5); const size = [4, 8, 8][k % 3]; const c = simulate(ids.slice(0, size), size, ids[Math.floor(Math.random() * 3)], `2026-12-${10 + k}`); ARCHIVE.push(c); out.push(newsOf(c)); } return out; }, ids: () => state.players.filter((p) => p.active).map((p) => p.id) };
